@@ -50,13 +50,15 @@
     import {ROLES} from "../../assets/js/config.js";
     import {paymentService} from "../../assets/js/services.js";
     import {formatCurrency, formatDate} from "../../assets/js/utils.js";
+    import {whenDataReady} from "../../assets/js/data/store.js";
     initApp(); requireRole(ROLES.BURSAR);
-    document.addEventListener("DOMContentLoaded",()=>{
+    function render(){
       const p=paymentService.getAll();
       document.querySelector("[data-count]").textContent=p.length;
       document.querySelector("[data-collected]").textContent=formatCurrency(p.reduce((s,x)=>s+(Number(x.amount)||0),0));
       document.querySelector("[data-tbody]").innerHTML=p.slice(0,10).map(x=>`<tr><td>${x.receiptNumber}</td><td>${x.student||"-"}</td><td>${formatCurrency(x.amount)}</td><td>${formatDate(x.paymentDate)}</td><td>${x.paymentMethod}</td></tr>`).join("")||`<tr><td colspan="5" class="text-center text-muted">No payments</td></tr>`;
-    });
+    }
+    document.addEventListener("DOMContentLoaded",()=>{render(); whenDataReady().then(render);});
   </script>
 </body>
 </html>

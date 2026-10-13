@@ -47,6 +47,7 @@
     import {resultService, classService, userService, notificationService} from "../../assets/js/services.js";
     import {query} from "../../assets/js/utils.js";
     import {toast} from "../../assets/js/notifications.js";
+    import {whenDataReady} from "../../assets/js/data/store.js";
     initApp(); requireRole(ROLES.ADMIN);
     function notifyParents(r){
       const studentIds=(r.records||[]).map(x=>x.studentId);
@@ -59,7 +60,7 @@
       document.querySelectorAll("[data-approve]").forEach(b=>b.addEventListener("click",()=>{const r=resultService.approve(b.getAttribute("data-approve")); if(r)notifyParents(r); toast("Result approved","success"); render();}));
       document.querySelectorAll("[data-reject]").forEach(b=>b.addEventListener("click",()=>{resultService.reject(b.getAttribute("data-reject")); toast("Result rejected","warning"); render();}));
     }
-    document.addEventListener("DOMContentLoaded",render);
+    document.addEventListener("DOMContentLoaded",()=>{render(); whenDataReady().then(render);});
   </script>
 </body>
 </html>

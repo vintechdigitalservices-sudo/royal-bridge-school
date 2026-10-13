@@ -46,6 +46,7 @@
     import {ROLES} from "../../assets/js/config.js";
     import {classService, studentService} from "../../assets/js/services.js";
     import {query} from "../../assets/js/utils.js";
+    import {whenDataReady} from "../../assets/js/data/store.js";
     initApp(); requireRole(ROLES.TEACHER);
     function render(){
       const classes=classService.getAll(); query("#classSel").innerHTML='<option value="">All Classes</option>'+classes.map(c=>`<option value="${c.classId}">${c.name}${c.arm?" "+c.arm:""}</option>`).join("");
@@ -54,7 +55,7 @@
       const f=list.filter(s=>!cls||s.classId===cls);
       query("#tbody").innerHTML=f.map(s=>`<tr><td>${s.firstName} ${s.lastName}</td><td>${s.className}${s.classArm?" "+s.classArm:""}</td><td>${s.admissionNumber}</td><td>${s.parentName}</td></tr>`).join("");
     }
-    document.addEventListener("DOMContentLoaded",()=>{render(); query("#classSel").addEventListener("change",render);});
+    document.addEventListener("DOMContentLoaded",()=>{render(); whenDataReady().then(render); query("#classSel").addEventListener("change",render);});
   </script>
 </body>
 </html>

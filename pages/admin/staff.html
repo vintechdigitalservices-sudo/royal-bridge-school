@@ -108,6 +108,7 @@
     import { staffService } from "../../assets/js/services.js";
     import { query } from "../../assets/js/utils.js";
     import { toast } from "../../assets/js/notifications.js";
+    import { whenDataReady } from "../../assets/js/data/store.js";
 
     initApp(); requireRole(ROLES.ADMIN);
     function render() {
@@ -125,7 +126,7 @@
       `).join("");
     }
     document.addEventListener("DOMContentLoaded", () => {
-      render(); query("#search").addEventListener("input", render);
+      render(); whenDataReady().then(render); query("#search").addEventListener("input", render);
       query("#save").addEventListener("click", () => {
         staffService.create({
           firstName: query("#firstName").value,

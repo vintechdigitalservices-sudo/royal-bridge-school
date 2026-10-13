@@ -46,6 +46,24 @@
     </div>
     <nav class="bottom-nav" data-bottom-nav></nav>
   </div>
-  <script type="module">import {initApp} from "../../assets/js/app.js"; import {requireRole} from "../../assets/js/auth.js"; import {ROLES} from "../../assets/js/config.js"; import {sessionService, db} from "../../assets/js/services.js"; const s=db?null:0; initApp(); requireRole(ROLES.ADMIN); document.addEventListener("DOMContentLoaded",async()=>{const m=await import("../../assets/js/db.js"); const d=m.db.get(); document.getElementById("sessions").innerHTML=d.sessions.map(x=>`<div class="p-md" style="border-bottom:1px solid var(--border)"><div>${x.name} ${x.current?'<span class="badge badge-success">Current</span>':''}</div></div>`).join(""); document.getElementById("terms").innerHTML=d.terms.map(x=>`<div class="p-md" style="border-bottom:1px solid var(--border)"><div>${x.name} ${x.current?'<span class="badge badge-success">Current</span>':''}</div></div>`).join("");});</script>
+  <script type="module">
+    import { initApp } from "../../assets/js/app.js";
+    import { requireRole } from "../../assets/js/auth.js";
+    import { ROLES } from "../../assets/js/config.js";
+    import { sessionService } from "../../assets/js/services.js";
+    import { whenDataReady, list } from "../../assets/js/data/store.js";
+
+    initApp();
+    requireRole(ROLES.ADMIN);
+
+    function render() {
+      const sessions = sessionService.getAll();
+      const terms = list("terms");
+      document.getElementById("sessions").innerHTML = sessions.map(x => `<div class="p-md" style="border-bottom:1px solid var(--border)"><div>${x.name} ${x.current ? '<span class="badge badge-success">Current</span>' : ''}</div></div>`).join("") || '<p class="text-muted">No sessions</p>';
+      document.getElementById("terms").innerHTML = terms.map(x => `<div class="p-md" style="border-bottom:1px solid var(--border)"><div>${x.name} ${x.current ? '<span class="badge badge-success">Current</span>' : ''}</div></div>`).join("") || '<p class="text-muted">No terms</p>';
+    }
+
+    document.addEventListener("DOMContentLoaded", () => { render(); whenDataReady().then(render); });
+  </script>
 </body>
 </html>

@@ -55,9 +55,11 @@
     import {studentService, paymentService, userService, notificationService} from "../../assets/js/services.js";
     import {query, formatCurrency} from "../../assets/js/utils.js";
     import {toast} from "../../assets/js/notifications.js";
+    import {whenDataReady} from "../../assets/js/data/store.js";
     initApp(); requireRole(ROLES.BURSAR);
+    function renderStudents(){ query("#student").innerHTML=studentService.getAll().map(s=>`<option value="${s.studentId}">${s.firstName} ${s.lastName} (${s.admissionNumber})</option>`).join(""); }
     document.addEventListener("DOMContentLoaded",()=>{
-      query("#student").innerHTML=studentService.getAll().map(s=>`<option value="${s.studentId}">${s.firstName} ${s.lastName} (${s.admissionNumber})</option>`).join("");
+      renderStudents(); whenDataReady().then(renderStudents);
       query("#save").addEventListener("click",()=>{
         const studentId=query("#student").value;
         const p=paymentService.record({studentId, amount:query("#amount").value, paymentMethod:query("#method").value, feeCategory:query("#fee").value, notes:query("#notes").value});

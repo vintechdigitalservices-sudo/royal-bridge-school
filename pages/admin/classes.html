@@ -67,12 +67,14 @@
     import { query } from "../../assets/js/utils.js";
     import { toast } from "../../assets/js/notifications.js";
     initApp(); requireRole(ROLES.ADMIN);
+    import { whenDataReady } from "../../assets/js/data/store.js";
+
     function render(){
       const list=classService.getAll().sort((a,b)=>a.name.localeCompare(b.name));
       query("#tbody").innerHTML=list.map(c=>`<tr><td>${c.name}</td><td>${c.arm||"-"}</td></tr>`).join("");
     }
     document.addEventListener("DOMContentLoaded",()=>{
-      render();
+      render(); whenDataReady().then(render);
       query("#save").addEventListener("click",()=>{
         classService.create({name:query("#name").value, arm:query("#arm").value||null, level:query("#name").value});
         toast("Class added","success");

@@ -53,6 +53,7 @@
     import {announcementService, userService, notificationService} from "../../assets/js/services.js";
     import {formatDate, query} from "../../assets/js/utils.js";
     import {toast} from "../../assets/js/notifications.js";
+    import {whenDataReady} from "../../assets/js/data/store.js";
     initApp(); requireRole(ROLES.ADMIN);
     function render(){const a=announcementService.getAll(); query("#list").innerHTML=a.map(x=>`<div class="mb-md"><div class="font-semibold">${x.title}</div><div class="text-muted text-sm">${formatDate(x.date)} • ${x.audience}</div><p>${x.message}</p></div>`).join("")||"<p class='text-muted'>No announcements</p>";}
     function audienceUsers(aud){
@@ -61,7 +62,7 @@
       if(aud==="staff") return [...userService.getByRole(ROLES.ADMIN),...userService.getByRole(ROLES.BURSAR),...userService.getByRole(ROLES.TEACHER)];
       return userService.getAll();
     }
-    document.addEventListener("DOMContentLoaded",()=>{render(); query("#create").addEventListener("click",()=>{
+    document.addEventListener("DOMContentLoaded",()=>{render(); whenDataReady().then(render); query("#create").addEventListener("click",()=>{
       const title=query("#title").value, message=query("#msg").value, audience=query("#aud").value;
       if(!title){toast("Enter a title","warning");return;}
       announcementService.create({title,message,audience});

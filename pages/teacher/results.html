@@ -60,6 +60,7 @@
     import {query} from "../../assets/js/utils.js";
     import {getCurrentUser} from "../../assets/js/auth.js";
     import {toast} from "../../assets/js/notifications.js";
+    import {whenDataReady} from "../../assets/js/data/store.js";
     initApp(); requireRole(ROLES.TEACHER);
     let students=[];
     function grade(t){ if(t>=90)return "A"; if(t>=80)return "B"; if(t>=70)return "C"; if(t>=60)return "D"; if(t>=50)return "E"; return "F"; }
@@ -84,6 +85,7 @@
       query("#subjectSel").innerHTML='<option value="">Subject</option>'+subjectService.getAll().map(s=>`<option value="${s.subjectId}">${s.name}</option>`).join("");
       students=studentService.getAll();
       render();
+      whenDataReady().then(()=>{ query("#classSel").innerHTML='<option value="">Class</option>'+classService.getAll().map(c=>`<option value="${c.classId}">${c.name}${c.arm?" "+c.arm:""}</option>`).join(""); query("#subjectSel").innerHTML='<option value="">Subject</option>'+subjectService.getAll().map(s=>`<option value="${s.subjectId}">${s.name}</option>`).join(""); students=studentService.getAll(); render(); });
       query("#classSel").addEventListener("change",render);
       query("#submitResults").addEventListener("click",()=>{
         const cls=query("#classSel").value, subj=query("#subjectSel").value, term=query("#termSel").value;

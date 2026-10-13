@@ -88,6 +88,7 @@
     import { notificationService } from "../assets/js/services.js";
     import { iconForNotificationType } from "../assets/js/config.js";
     import { isSoundEnabled, setSoundEnabled, refresh as refreshBell } from "../assets/js/notification-center.js";
+    import { whenDataReady } from "../assets/js/data/store.js";
 
     initApp();
     const user = requireAuth();
@@ -166,6 +167,7 @@
       });
       updatePerm();
       render();
+      whenDataReady().then(() => { refreshBell(); render(); });
     });
   </script>
 </body>

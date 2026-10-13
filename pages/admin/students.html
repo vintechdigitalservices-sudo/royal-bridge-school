@@ -135,6 +135,7 @@
     import { studentService, classService } from "../../assets/js/services.js";
     import { query } from "../../assets/js/utils.js";
     import { toast } from "../../assets/js/notifications.js";
+    import { whenDataReady } from "../../assets/js/data/store.js";
 
     initApp();
     requireRole(ROLES.ADMIN);
@@ -178,7 +179,7 @@
     }
 
     document.addEventListener("DOMContentLoaded", () => {
-      render();
+      render(); whenDataReady().then(render);
       query("#studentSearch").addEventListener("input", render);
       query("#classFilter").addEventListener("change", render);
       query("#clearFilters").addEventListener("click", () => { query("#studentSearch").value=""; query("#classFilter").value=""; render(); });

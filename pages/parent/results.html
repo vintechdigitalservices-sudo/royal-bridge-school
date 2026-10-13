@@ -56,9 +56,10 @@
     import {ROLES} from "../../assets/js/config.js";
     import {studentService, resultService, subjectService} from "../../assets/js/services.js";
     import {query} from "../../assets/js/utils.js";
+    import {whenDataReady} from "../../assets/js/data/store.js";
     initApp(); requireRole(ROLES.PARENT);
     const u=getCurrentUser();
-    document.addEventListener("DOMContentLoaded",()=>{
+    function renderChildren(){
       if(!u||!u.parent) return;
       const children=u.parent.children||[];
       const all=studentService.getAll(); const subs=subjectService.getAll().reduce((m,s)=>{m[s.subjectId]=s.name; return m;},{});
@@ -75,7 +76,8 @@
         query("#tbody").innerHTML=rows.map(x=>`<tr><td>${subs[x.subjectId]||x.subjectId}</td><td>${x.ca}</td><td>${x.exam}</td><td>${x.total}</td><td>${x.grade}</td></tr>`).join("")||'<tr><td colspan="5" class="text-center text-muted">No approved results</td></tr>';
       }
       query("#childSel").addEventListener("change",render); query("#termSel").addEventListener("change",render); render();
-    });
+    }
+    document.addEventListener("DOMContentLoaded",()=>{ renderChildren(); whenDataReady().then(renderChildren); });
   </script>
 </body>
 </html>

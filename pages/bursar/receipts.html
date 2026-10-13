@@ -47,8 +47,9 @@
     import {paymentService} from "../../assets/js/services.js";
     import {formatCurrency, formatDate} from "../../assets/js/utils.js";
     import {showModal} from "../../assets/js/modal.js";
+    import {whenDataReady} from "../../assets/js/data/store.js";
     initApp(); requireRole(ROLES.BURSAR);
-    document.addEventListener("DOMContentLoaded",()=>{
+    function render(){
       const p=paymentService.getAll();
       const tbody=document.getElementById("tbody");
       tbody.innerHTML=p.map(x=>`<tr><td>${x.receiptNumber}</td><td>${x.student||"-"}</td><td>${formatCurrency(x.amount)}</td><td>${formatDate(x.paymentDate)}</td><td><button class="btn btn-sm btn-secondary" data-print="${x.receiptNumber}" data-student="${x.student||"-"}" data-amount="${formatCurrency(x.amount)}">Print</button></td></tr>`).join("")||'<tr><td colspan="5" class="text-center text-muted">No receipts</td></tr>';
@@ -60,7 +61,8 @@
           buttons:[{label:"Close", variant:"secondary", value:true},{label:"Print", variant:"primary", value:"print", autofocus:true}]
         }).then(v=>{ if(v==="print") window.print(); });
       }));
-    });
+    }
+    document.addEventListener("DOMContentLoaded",()=>{ render(); whenDataReady().then(render); });
   </script>
 </body>
 </html>

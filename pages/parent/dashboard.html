@@ -46,15 +46,17 @@
     import {requireRole, getCurrentUser} from "../../assets/js/auth.js";
     import {ROLES} from "../../assets/js/config.js";
     import {studentService} from "../../assets/js/services.js";
+    import {whenDataReady} from "../../assets/js/data/store.js";
     initApp(); requireRole(ROLES.PARENT);
     const u=getCurrentUser();
-    document.addEventListener("DOMContentLoaded",()=>{
+    function render(){
       if(!u||!u.parent) return;
       const children=u.parent.children||[];
       const all=studentService.getAll();
       const list=children.map(c=>all.find(s=>s.studentId===c.studentId)).filter(Boolean);
       document.getElementById("children").innerHTML=list.map(s=>`<div class="p-md" style="border:1px solid var(--border);border-radius:var(--radius);margin-bottom:8px"><div class="font-semibold">${s.firstName} ${s.lastName}</div><div class="text-muted text-sm">${s.className}${s.classArm?" "+s.classArm:""} • ${s.admissionNumber}</div></div>`).join("")||"<p class='text-muted'>No children linked</p>";
-    });
+    }
+    document.addEventListener("DOMContentLoaded",()=>{render(); whenDataReady().then(render);});
   </script>
 </body>
 </html>

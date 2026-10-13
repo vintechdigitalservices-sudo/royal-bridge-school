@@ -41,6 +41,6 @@
     </div>
     <nav class="bottom-nav" data-bottom-nav></nav>
   </div>
-  <script type="module">import {initApp} from "../../assets/js/app.js"; import {requireRole} from "../../assets/js/auth.js"; import {ROLES} from "../../assets/js/config.js"; import {studentService, paymentService} from "../../assets/js/services.js"; import {formatCurrency} from "../../assets/js/utils.js"; initApp(); requireRole(ROLES.ADMIN); document.addEventListener("DOMContentLoaded",()=>{const st=studentService.getAll(); const pay=paymentService.getAll(); document.getElementById("s").textContent=st.length; document.getElementById("p").textContent=pay.length; document.getElementById("c").textContent=formatCurrency(pay.reduce((x,y)=>x+(Number(y.amount)||0),0));});</script>
+  <script type="module">import {initApp} from "../../assets/js/app.js"; import {requireRole} from "../../assets/js/auth.js"; import {ROLES} from "../../assets/js/config.js"; import {studentService, paymentService} from "../../assets/js/services.js"; import {formatCurrency} from "../../assets/js/utils.js"; import {whenDataReady} from "../../assets/js/data/store.js"; initApp(); requireRole(ROLES.ADMIN); function render(){const st=studentService.getAll(); const pay=paymentService.getAll(); document.getElementById("s").textContent=st.length; document.getElementById("p").textContent=pay.length; document.getElementById("c").textContent=formatCurrency(pay.reduce((x,y)=>x+(Number(y.amount)||0),0));} document.addEventListener("DOMContentLoaded",()=>{render(); whenDataReady().then(render);});</script>
 </body>
 </html>

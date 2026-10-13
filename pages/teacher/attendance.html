@@ -58,6 +58,7 @@
     import {classService, studentService, attendanceService} from "../../assets/js/services.js";
     import {query} from "../../assets/js/utils.js";
     import {toast} from "../../assets/js/notifications.js";
+    import {whenDataReady} from "../../assets/js/data/store.js";
     initApp(); requireRole(ROLES.TEACHER);
     let students=[];
     function render(){
@@ -70,6 +71,7 @@
       query("#classSel").innerHTML='<option value="">Select Class</option>'+classes.map(c=>`<option value="${c.classId}">${c.name}${c.arm?" "+c.arm:""}</option>`).join("");
       students=studentService.getAll();
       render();
+      whenDataReady().then(()=>{ query("#classSel").innerHTML='<option value="">Select Class</option>'+classService.getAll().map(c=>`<option value="${c.classId}">${c.name}${c.arm?" "+c.arm:""}</option>`).join(""); students=studentService.getAll(); render(); });
       query("#classSel").addEventListener("change",render);
       query("#saveAtt").addEventListener("click",()=>{
         const cls=query("#classSel").value; const date=query("#attDate").value||new Date().toISOString().slice(0,10);

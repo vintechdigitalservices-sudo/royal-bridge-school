@@ -40,7 +40,24 @@
     </div>
     <nav class="bottom-nav" data-bottom-nav></nav>
   </div>
-  <script type="module">import {initApp} from "../../assets/js/app.js"; import {requireRole} from "../../assets/js/auth.js"; import {ROLES} from "../../assets/js/config.js"; import {feeService, classService} from "../../assets/js/services.js"; import {formatCurrency} from "../../assets/js/utils.js"; initApp(); requireRole(ROLES.ADMIN); document.addEventListener("DOMContentLoaded",()=>{const s=feeService.getStructures().slice(0,15); const classes=classService.getAll().reduce((m,c)=>{m[c.classId]=c.name+(c.arm?" "+c.arm:""); return m;},{});
-    document.getElementById("tbody").innerHTML=s.map(x=>`<tr><td>${classes[x.classId]||x.classId}</td><td>${x.feeName}</td><td>${x.termName}</td><td>${formatCurrency(x.amount)}</td></tr>`).join("");});</script>
+  <script type="module">
+    import { initApp } from "../../assets/js/app.js";
+    import { requireRole } from "../../assets/js/auth.js";
+    import { ROLES } from "../../assets/js/config.js";
+    import { feeService, classService } from "../../assets/js/services.js";
+    import { formatCurrency } from "../../assets/js/utils.js";
+    import { whenDataReady } from "../../assets/js/data/store.js";
+
+    initApp();
+    requireRole(ROLES.ADMIN);
+
+    function render() {
+      const s = feeService.getStructures().slice(0, 15);
+      const classes = classService.getAll().reduce((m, c) => { m[c.classId] = c.name + (c.arm ? " " + c.arm : ""); return m; }, {});
+      document.getElementById("tbody").innerHTML = s.map(x => `<tr><td>${classes[x.classId] || x.classId}</td><td>${x.feeName || "Tuition + Development"}</td><td>${x.termName}</td><td>${formatCurrency(x.amount != null ? x.amount : x.total)}</td></tr>`).join("") || '<tr><td colspan="4" class="text-center text-muted">No fee structures</td></tr>';
+    }
+
+    document.addEventListener("DOMContentLoaded", () => { render(); whenDataReady().then(render); });
+  </script>
 </body>
 </html>

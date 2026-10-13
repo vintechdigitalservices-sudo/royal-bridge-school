@@ -1,162 +1,137 @@
-import { db } from "./db.js";
 import { uid, deepClone, generateReceiptNumber } from "./utils.js";
 import { CURRENT_SESSION, CURRENT_TERM, RESULT_STATUS } from "./config.js";
+import * as store from "./data/store.js";
 
-function getDb() {
-  return db.get();
-}
-
-function commit(next) {
-  return db.save(next);
+function withUserId(u) {
+  return u.userId ? u : { ...u, userId: u.uid };
 }
 
 export const studentService = {
   getAll() {
-    return deepClone(getDb().students || []);
+    return store.list("students");
   },
   getById(id) {
-    const s = (getDb().students || []).find((x) => x.studentId === id);
-    return s ? deepClone(s) : null;
+    return store.find("students", (x) => x.studentId === id);
   },
   findByClass(classId) {
-    return deepClone((getDb().students || []).filter((x) => x.classId === classId));
+    return store.filter("students", (x) => x.classId === classId);
   },
   create(data) {
-    const d = getDb();
-    const record = { studentId: uid(), ...data };
-    d.students.push(record);
-    commit(d);
+    const record = { studentId: uid(), status: "active", ...data };
+    store.createRecord("students", "studentId", record).catch(() => {});
     return deepClone(record);
   },
   update(id, data) {
-    const d = getDb();
-    const idx = d.students.findIndex((x) => x.studentId === id);
-    if (idx === -1) return null;
-    d.students[idx] = { ...d.students[idx], ...data };
-    commit(d);
-    return deepClone(d.students[idx]);
+    store.updateRecord("students", "studentId", id, data).catch(() => {});
+    return deepClone({ ...(this.getById(id) || {}), ...data });
   },
   delete(id) {
-    const d = getDb();
-    d.students = d.students.filter((x) => x.studentId !== id);
-    commit(d);
+    store.removeRecord("students", "studentId", id).catch(() => {});
     return true;
   }
 };
 
 export const staffService = {
   getAll() {
-    return deepClone(getDb().staff || []);
+    return store.list("staff");
   },
   getById(id) {
-    const s = (getDb().staff || []).find((x) => x.staffId === id);
-    return s ? deepClone(s) : null;
+    return store.find("staff", (x) => x.staffId === id);
   },
   create(data) {
-    const d = getDb();
-    const record = { staffId: uid(), ...data };
-    d.staff.push(record);
-    commit(d);
+    const record = { staffId: uid(), active: true, ...data };
+    store.createRecord("staff", "staffId", record).catch(() => {});
     return deepClone(record);
   },
   update(id, data) {
-    const d = getDb();
-    const idx = d.staff.findIndex((x) => x.staffId === id);
-    if (idx === -1) return null;
-    d.staff[idx] = { ...d.staff[idx], ...data };
-    commit(d);
-    return deepClone(d.staff[idx]);
+    store.updateRecord("staff", "staffId", id, data).catch(() => {});
+    return deepClone({ ...(this.getById(id) || {}), ...data });
   }
 };
 
 export const classService = {
   getAll() {
-    return deepClone(getDb().classes || []);
+    return store.list("classes");
   },
   getById(id) {
-    const c = (getDb().classes || []).find((x) => x.classId === id);
-    return c ? deepClone(c) : null;
+    return store.find("classes", (x) => x.classId === id);
   },
   create(data) {
-    const d = getDb();
     const record = { classId: uid(), ...data };
-    d.classes.push(record);
-    commit(d);
+    store.createRecord("classes", "classId", record).catch(() => {});
     return deepClone(record);
   }
 };
 
 export const subjectService = {
   getAll() {
-    return deepClone(getDb().subjects || []);
+    return store.list("subjects");
   },
   create(data) {
-    const d = getDb();
     const record = { subjectId: uid(), ...data };
-    d.subjects.push(record);
-    commit(d);
+    store.createRecord("subjects", "subjectId", record).catch(() => {});
     return deepClone(record);
   },
   update(id, data) {
-    const d = getDb();
-    const idx = d.subjects.findIndex((x) => x.subjectId === id);
-    if (idx === -1) return null;
-    d.subjects[idx] = { ...d.subjects[idx], ...data };
-    commit(d);
-    return deepClone(d.subjects[idx]);
+    store.updateRecord("subjects", "subjectId", id, data).catch(() => {});
+    return deepClone({ ...(store.find("subjects", (x) => x.subjectId === id) || {}), ...data });
   }
 };
 
 export const sessionService = {
   getAll() {
-    return deepClone(getDb().sessions || []);
+    return store.list("sessions");
   },
   getCurrent() {
-    const d = getDb();
-    return d.sessions.find((x) => x.current) || { name: CURRENT_SESSION, sessionId: null };
+    return store.find("sessions", (x) => x.current) || { name: CURRENT_SESSION, sessionId: null };
   },
   getCurrentTerm() {
-    const d = getDb();
-    return d.terms.find((x) => x.current) || { name: CURRENT_TERM, termId: null };
+    return store.find("terms", (x) => x.current) || { name: CURRENT_TERM, termId: null };
   },
   setCurrentSession(id) {
-    const d = getDb();
-    d.sessions.forEach((s) => { s.current = s.sessionId === id; });
-    commit(d);
+    store.list("sessions").forEach((s) => {
+      store.updateRecord("sessions", "sessionId", s.sessionId, { current: s.sessionId === id }).catch(() => {});
+    });
     return true;
   },
   setCurrentTerm(id) {
-    const d = getDb();
-    d.terms.forEach((t) => { t.current = t.termId === id; });
-    commit(d);
+    store.list("terms").forEach((t) => {
+      store.updateRecord("terms", "termId", t.termId, { current: t.termId === id }).catch(() => {});
+    });
     return true;
   }
 };
 
 export const feeService = {
   getCategories() {
-    return deepClone(getDb().feeCategories || []);
+    return [];
   },
   getStructures() {
-    return deepClone(getDb().feeStructures || []);
+    return store.list("feeStructures");
   },
   getStudentBalance(studentId) {
-    const payments = (getDb().payments || []).filter((p) => p.studentId === studentId).reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+    const paid = store
+      .filter("payments", (p) => p.studentId === studentId)
+      .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
     const expected = 150000;
-    return { totalPaid: payments, outstanding: Math.max(0, expected - payments), expected };
+    return { totalPaid: paid, outstanding: Math.max(0, expected - paid), expected };
   }
 };
 
 export const paymentService = {
   getAll() {
-    const d = getDb();
-    return deepClone(d.payments || []).map((p) => {
-      const s = d.students.find((x) => x.studentId === p.studentId);
-      return { ...p, student: s ? `${s.firstName} ${s.lastName} (${s.admissionNumber})` : null, className: s?.className, classArm: s?.classArm };
+    const students = store.list("students");
+    return store.list("payments").map((p) => {
+      const s = students.find((x) => x.studentId === p.studentId);
+      return {
+        ...p,
+        student: s ? `${s.firstName} ${s.lastName} (${s.admissionNumber})` : null,
+        className: s?.className,
+        classArm: s?.classArm
+      };
     });
   },
   record({ studentId, amount, paymentMethod, feeCategory, notes }) {
-    const d = getDb();
     const pay = {
       paymentId: uid(),
       receiptNumber: generateReceiptNumber(),
@@ -165,33 +140,32 @@ export const paymentService = {
       paymentDate: new Date().toISOString().slice(0, 10),
       paymentMethod,
       feeCategory: feeCategory || "Fees",
-      sessionId: d.sessions.find((s) => s.current)?.sessionId || null,
+      sessionId: sessionService.getCurrent().sessionId || null,
       termName: sessionService.getCurrentTerm().name || CURRENT_TERM,
       recordedBy: null,
+      status: "confirmed",
       notes: notes || ""
     };
-    d.payments.push(pay);
-    commit(d);
+    store.createRecord("payments", "paymentId", pay).catch(() => {});
     return deepClone(pay);
   },
   getByStudent(studentId) {
-    return deepClone((getDb().payments || []).filter((p) => p.studentId === studentId));
+    return store.filter("payments", (p) => p.studentId === studentId);
   }
 };
 
 export const attendanceService = {
-  getAll() { return deepClone(getDb().attendance || []); },
+  getAll() {
+    return store.list("attendance");
+  },
   record({ classId, date, records }) {
-    const d = getDb();
     const entry = { attendanceId: uid(), classId, date, records, recordedAt: new Date().toISOString() };
-    d.attendance.push(entry);
-    commit(d);
+    store.createRecord("attendance", "attendanceId", entry).catch(() => {});
     return deepClone(entry);
   },
   getByStudent(studentId) {
-    const att = getDb().attendance || [];
     const res = [];
-    att.forEach((a) => {
+    store.list("attendance").forEach((a) => {
       const rec = (a.records || []).find((r) => r.studentId === studentId);
       if (rec) res.push({ date: a.date, status: rec.status });
     });
@@ -200,34 +174,43 @@ export const attendanceService = {
 };
 
 export const resultService = {
-  getAll() { return deepClone(getDb().results || []); },
+  getAll() {
+    return store.list("results");
+  },
+  getByStudent(studentId) {
+    return store.filter("results", (x) => x.studentId === studentId);
+  },
   submit({ classId, subjectId, termName, records }) {
-    const d = getDb();
-    const r = { resultId: uid(), classId, subjectId, termName, records, status: RESULT_STATUS.SUBMITTED, submittedAt: new Date().toISOString() };
-    d.results.push(r);
-    commit(d);
+    const r = {
+      resultId: uid(),
+      classId,
+      subjectId,
+      termName,
+      records,
+      status: RESULT_STATUS.SUBMITTED,
+      submittedAt: new Date().toISOString()
+    };
+    store.createRecord("results", "resultId", r).catch(() => {});
     return deepClone(r);
   },
   approve(id) {
-    const d = getDb();
-    const idx = d.results.findIndex((x) => x.resultId === id);
-    if (idx === -1) return null;
-    d.results[idx].status = RESULT_STATUS.APPROVED;
-    d.results[idx].approvedAt = new Date().toISOString();
-    commit(d);
-    return deepClone(d.results[idx]);
+    const patch = { status: RESULT_STATUS.APPROVED, approvedAt: new Date().toISOString() };
+    store.updateRecord("results", "resultId", id, patch).catch(() => {});
+    return deepClone({ ...(store.find("results", (x) => x.resultId === id) || {}), ...patch });
   },
   reject(id) {
-    const d = getDb();
-    const idx = d.results.findIndex((x) => x.resultId === id);
-    if (idx === -1) return null;
-    d.results[idx].status = RESULT_STATUS.REJECTED;
-    commit(d);
-    return deepClone(d.results[idx]);
+    const patch = { status: RESULT_STATUS.REJECTED };
+    store.updateRecord("results", "resultId", id, patch).catch(() => {});
+    return deepClone({ ...(store.find("results", (x) => x.resultId === id) || {}), ...patch });
   },
   getApprovedForStudent(studentId, termName) {
-    const d = getDb();
-    return deepClone((d.results || []).filter((x) => x.status === RESULT_STATUS.APPROVED && x.termName === termName && (x.records || []).some((r) => r.studentId === studentId)));
+    return store.filter(
+      "results",
+      (x) =>
+        x.status === RESULT_STATUS.APPROVED &&
+        (!termName || x.termName === termName) &&
+        (x.studentId === studentId || (x.records || []).some((r) => r.studentId === studentId))
+    );
   }
 };
 
@@ -238,49 +221,61 @@ function announcementTime(a) {
 }
 
 export const announcementService = {
-  getAll() { return deepClone(getDb().announcements || []).sort((a, b) => announcementTime(b) - announcementTime(a)); },
-  getPublished() { return deepClone((getDb().announcements || []).filter((a) => a.status === "published")).sort((a, b) => announcementTime(b) - announcementTime(a)); },
+  getAll() {
+    return store.list("announcements").sort((a, b) => announcementTime(b) - announcementTime(a));
+  },
+  getPublished() {
+    return store
+      .filter("announcements", (a) => a.status === "published")
+      .sort((a, b) => announcementTime(b) - announcementTime(a));
+  },
   create(data) {
-    const d = getDb();
-    const a = { announcementId: uid(), date: new Date().toISOString().slice(0, 10), createdAt: new Date().toISOString(), status: "published", ...data };
-    d.announcements.unshift(a);
-    commit(d);
+    const a = {
+      announcementId: uid(),
+      date: new Date().toISOString().slice(0, 10),
+      createdAt: new Date().toISOString(),
+      status: "published",
+      ...data
+    };
+    store.createRecord("announcements", "announcementId", a, { front: true }).catch(() => {});
     return deepClone(a);
   }
 };
 
 export const userService = {
-  getAll() { return deepClone(getDb().users || []); },
+  getAll() {
+    return store.list("users").map(withUserId);
+  },
   getById(id) {
-    const u = (getDb().users || []).find((x) => x.userId === id);
-    return u ? deepClone(u) : null;
+    const u = store.find("users", (x) => (x.userId || x.uid) === id);
+    return u ? withUserId(u) : null;
   },
   findByEmail(email) {
-    const u = (getDb().users || []).find((x) => x.email.toLowerCase() === String(email).toLowerCase());
-    return u ? deepClone(u) : null;
+    const u = store.find("users", (x) => String(x.email || "").toLowerCase() === String(email).toLowerCase());
+    return u ? withUserId(u) : null;
   },
   getByRole(role) {
-    return deepClone((getDb().users || []).filter((x) => x.role === role));
+    return store.filter("users", (x) => x.role === role).map(withUserId);
   },
   getParentsOfStudent(studentId) {
-    const d = getDb();
-    const parentIds = (d.parents || []).filter((p) => (p.children || []).some((c) => c.studentId === studentId)).map((p) => p.parentId);
-    return deepClone((d.users || []).filter((u) => parentIds.includes(u.parentId)));
+    const students = store.find("students", (s) => s.studentId === studentId);
+    const email = students?.parentEmail || students?.guardian?.email;
+    if (email) return store.filter("users", (u) => String(u.email || "").toLowerCase() === String(email).toLowerCase()).map(withUserId);
+    return [];
   }
 };
 
 export const notificationService = {
   getAll() {
-    return deepClone(getDb().notifications || []);
+    return store.list("notifications");
   },
   getByUser(userId) {
-    return deepClone((getDb().notifications || []).filter((n) => n.userId === userId));
+    return store.filter("notifications", (n) => n.userId === userId);
   },
   getUnreadCount(userId) {
-    return (getDb().notifications || []).filter((n) => n.userId === userId && !n.read).length;
+    return store.filter("notifications", (n) => n.userId === userId && !n.read).length;
   },
   create({ userId, title, message, type, link }) {
-    const d = getDb();
     const n = {
       id: uid(),
       userId,
@@ -291,31 +286,24 @@ export const notificationService = {
       read: false,
       link: link || null
     };
-    d.notifications.push(n);
-    commit(d);
+    store.createRecord("notifications", "id", n).catch(() => {});
     return deepClone(n);
   },
   createForUsers(userIds, payload) {
     return (userIds || []).map((userId) => notificationService.create({ userId, ...payload }));
   },
   markRead(id) {
-    const d = getDb();
-    const n = (d.notifications || []).find((x) => x.id === id);
-    if (!n) return null;
-    n.read = true;
-    commit(d);
-    return deepClone(n);
+    store.updateRecord("notifications", "id", id, { read: true }).catch(() => {});
+    return deepClone({ ...(store.find("notifications", (n) => n.id === id) || {}), read: true });
   },
   markAllRead(userId) {
-    const d = getDb();
-    (d.notifications || []).forEach((n) => { if (n.userId === userId) n.read = true; });
-    commit(d);
+    store.filter("notifications", (n) => n.userId === userId && !n.read).forEach((n) => {
+      store.updateRecord("notifications", "id", n.id, { read: true }).catch(() => {});
+    });
     return true;
   },
   remove(id) {
-    const d = getDb();
-    d.notifications = (d.notifications || []).filter((x) => x.id !== id);
-    commit(d);
+    store.removeRecord("notifications", "id", id).catch(() => {});
     return true;
   }
 };

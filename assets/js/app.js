@@ -3,6 +3,8 @@ import { initNavigation } from "./navigation.js";
 import { initModals } from "./modal.js";
 import { initPasswordToggles } from "./forms.js";
 import { initAuth } from "./auth.js";
+import { hydrate } from "./data/store.js";
+import { toast } from "./notifications.js";
 
 function setConfig() {
   window.SCHOOL_CONFIG = SCHOOL_CONFIG;
@@ -17,11 +19,23 @@ function registerServiceWorker() {
   });
 }
 
+function initDataLayer() {
+  document.addEventListener("data:error", (e) => {
+    const detail = (e && e.detail) || {};
+    const label = detail.collection ? ` (${detail.collection})` : "";
+    toast(`Could not save to the database${label}. Please retry.`, "error");
+  });
+  hydrate().catch(() => {
+    // Errors are already surfaced via the data:error event.
+  });
+}
+
 export function initApp() {
   setConfig();
   initNavigation();
   initModals();
   initPasswordToggles();
+  initDataLayer();
   initAuth();
   registerServiceWorker();
 }
