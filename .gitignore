@@ -1,6 +1,14 @@
 # Secrets — never commit service account keys
 *firebase-adminsdk*.json
 *.serviceAccount.json
+.env
+.env.*
+
+# Node tooling (seed script)
+node_modules/
+npm-debug.log*
+.firebase/
+firebase-debug.log
 
 # OS / editor
 .DS_Store

@@ -1,0 +1,16 @@
+{
+  "name": "royalbridge-portal",
+  "version": "2.0.0",
+  "private": true,
+  "description": "ROYALBRIDGE INT'L SCHOOL portal — V2 (Firestore-backed). Node tooling is used ONLY for privileged, server-side seeding/migration; the app itself remains static HTML/CSS/vanilla JS.",
+  "type": "commonjs",
+  "scripts": {
+    "seed": "node scripts/seed-firestore.js",
+    "seed:dry": "node scripts/seed-firestore.js --dry-run",
+    "seed:reset-demo": "node scripts/seed-firestore.js --reset-demo",
+    "verify": "node scripts/verify-firestore.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.7.0"
+  }
+}
