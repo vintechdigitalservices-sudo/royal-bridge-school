@@ -1,5 +1,6 @@
 import { uid, deepClone, generateReceiptNumber } from "./utils.js";
 import { CURRENT_SESSION, CURRENT_TERM, RESULT_STATUS } from "./config.js";
+import { getWeights, gradeFor, computeTermResult, termSlug, levelGroupForClass } from "./reporting.js";
 import * as store from "./data/store.js";
 
 function withUserId(u) {
@@ -177,45 +178,125 @@ export const resultService = {
   getAll() {
     return store.list("results");
   },
+  getById(id) {
+    return store.find("results", (r) => r.resultId === id);
+  },
   getByStudent(studentId) {
-    return store.filter("results", (x) => x.studentId === studentId);
+    return store.filter("results", (r) => r.studentId === studentId);
+  },
+  getByClassTerm(classId, termName) {
+    return store
+      .filter("results", (r) => r.classId === classId && (!termName || r.termName === termName))
+      .sort((a, b) => String(a.studentId).localeCompare(String(b.studentId)));
   },
   getPublishedForStudent(studentId) {
     return store
-      .filter("results", (x) => x.studentId === studentId && /published|approved/i.test(x.status || ""))
-      .sort((a, b) => new Date(a.submittedAt || 0) - new Date(b.submittedAt || 0));
-  },
-  submit({ classId, subjectId, termName, records }) {
-    const r = {
-      resultId: uid(),
-      classId,
-      subjectId,
-      termName,
-      records,
-      status: RESULT_STATUS.SUBMITTED,
-      submittedAt: new Date().toISOString()
-    };
-    store.createRecord("results", "resultId", r).catch(() => {});
-    return deepClone(r);
-  },
-  approve(id) {
-    const patch = { status: RESULT_STATUS.APPROVED, approvedAt: new Date().toISOString() };
-    store.updateRecord("results", "resultId", id, patch).catch(() => {});
-    return deepClone({ ...(store.find("results", (x) => x.resultId === id) || {}), ...patch });
-  },
-  reject(id) {
-    const patch = { status: RESULT_STATUS.REJECTED };
-    store.updateRecord("results", "resultId", id, patch).catch(() => {});
-    return deepClone({ ...(store.find("results", (x) => x.resultId === id) || {}), ...patch });
+      .filter("results", (r) => r.studentId === studentId && /published|approved/i.test(r.status || ""))
+      .sort((a, b) => new Date(a.submittedAt || a.createdAt || 0) - new Date(b.submittedAt || b.createdAt || 0));
   },
   getApprovedForStudent(studentId, termName) {
     return store.filter(
       "results",
-      (x) =>
-        x.status === RESULT_STATUS.APPROVED &&
-        (!termName || x.termName === termName) &&
-        (x.studentId === studentId || (x.records || []).some((r) => r.studentId === studentId))
+      (r) =>
+        r.studentId === studentId &&
+        (!termName || r.termName === termName) &&
+        /published|approved/i.test(r.status || "")
     );
+  },
+  scoreFor(ca, mid, exam) {
+    const w = getWeights();
+    const c = Math.max(0, Math.min(w.ca, Number(ca) || 0));
+    const m = Math.max(0, Math.min(w.mid, Number(mid) || 0));
+    const e = Math.max(0, Math.min(w.exam, Number(exam) || 0));
+    const total = c + m + e;
+    const g = gradeFor(total);
+    return { ca: c, mid: m, exam: e, total, grade: g.grade, remark: g.remark };
+  },
+  upsertSubjectScore({ studentId, classId, termName, subjectCode, scores }) {
+    if (!studentId || !classId || !termName || !subjectCode) return null;
+    const session = sessionService.getCurrent();
+    const slug = termSlug(termName);
+    let result = store.find(
+      "results",
+      (r) => r.studentId === studentId && r.classId === classId && r.termName === termName
+    );
+    if (!result) {
+      const base = session && session.sessionId
+        ? session.sessionId.replace(/^session-/, "")
+        : CURRENT_SESSION.replace(/\//g, "-");
+      result = {
+        resultId: `res-${base}-${slug}-${studentId}`,
+        studentId,
+        classId,
+        sessionId: session ? session.sessionId : null,
+        termName,
+        termSlug: slug,
+        levelGroup: levelGroupForClass(classId),
+        subjects: {},
+        status: RESULT_STATUS.DRAFT,
+        createdAt: new Date().toISOString()
+      };
+      store.createRecord("results", "resultId", result).catch(() => {});
+    }
+    const subjects = { ...(result.subjects || {}) };
+    subjects[subjectCode] = this.scoreFor(scores.ca, scores.mid, scores.exam);
+    const merged = { ...result, subjects };
+    const t = computeTermResult(merged);
+    const patch = {
+      subjects,
+      subjectCount: t.subjectCount,
+      totalScore: t.totalScore,
+      average: t.average
+    };
+    if (result.status && result.status !== RESULT_STATUS.DRAFT) {
+      patch.status = RESULT_STATUS.DRAFT;
+    }
+    store.updateRecord("results", "resultId", result.resultId, patch).catch(() => {});
+    return { ...result, ...patch };
+  },
+  saveDraft(payload) {
+    return this.upsertSubjectScore(payload);
+  },
+  submitResults({ classId, termName, studentIds }) {
+    const list = this.getByClassTerm(classId, termName).filter(
+      (r) => !studentIds || studentIds.includes(r.studentId)
+    );
+    const at = new Date().toISOString();
+    list.forEach((r) =>
+      store.updateRecord("results", "resultId", r.resultId, { status: RESULT_STATUS.SUBMITTED, submittedAt: at }).catch(() => {})
+    );
+    return list.length;
+  },
+  setStatus(id, status, extra) {
+    const patch = { status, ...(extra || {}) };
+    const stamps = {
+      [RESULT_STATUS.RETURNED]: "returnedAt",
+      [RESULT_STATUS.APPROVED]: "approvedAt",
+      [RESULT_STATUS.PUBLISHED]: "publishedAt"
+    };
+    if (stamps[status]) patch[stamps[status]] = new Date().toISOString();
+    store.updateRecord("results", "resultId", id, patch).catch(() => {});
+    return deepClone({ ...(this.getById(id) || {}), ...patch });
+  },
+  returnResult(id) {
+    return this.setStatus(id, RESULT_STATUS.RETURNED);
+  },
+  approveResult(id) {
+    return this.setStatus(id, RESULT_STATUS.APPROVED);
+  },
+  publishResult(id) {
+    return this.setStatus(id, RESULT_STATUS.PUBLISHED);
+  },
+  publishClassTerm({ classId, termName }) {
+    const list = store.filter(
+      "results",
+      (r) =>
+        r.classId === classId &&
+        (!termName || r.termName === termName) &&
+        (r.status === RESULT_STATUS.APPROVED || r.status === RESULT_STATUS.SUBMITTED)
+    );
+    list.forEach((r) => this.setStatus(r.resultId, RESULT_STATUS.PUBLISHED));
+    return list.length;
   }
 };
 

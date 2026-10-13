@@ -37,7 +37,7 @@
           <div class="card-body">
             <div class="form-group"><label class="form-label">Title</label><input class="form-input" id="title" /></div>
             <div class="form-group"><label class="form-label">Message</label><textarea class="form-textarea" id="msg"></textarea></div>
-            <div class="form-group"><label class="form-label">Audience</label><select class="form-select" id="aud"><option value="everyone">Everyone</option><option value="teachers">Teachers</option><option value="parents">Parents</option><option value="staff">Staff</option></select></div>
+            <div class="form-group"><label class="form-label">Audience</label><select class="form-select" id="aud"><option value="everyone">Everyone</option><option value="teachers">Teachers</option><option value="students">Students</option><option value="staff">Staff</option></select></div>
             <button class="btn btn-primary" id="create">Publish</button>
           </div>
         </div>
@@ -58,7 +58,7 @@
     function render(){const a=announcementService.getAll(); query("#list").innerHTML=a.map(x=>`<div class="mb-md"><div class="font-semibold">${x.title}</div><div class="text-muted text-sm">${formatDate(x.date)} • ${x.audience}</div><p>${x.message}</p></div>`).join("")||"<p class='text-muted'>No announcements</p>";}
     function audienceUsers(aud){
       if(aud==="teachers") return userService.getByRole(ROLES.TEACHER);
-      if(aud==="parents") return userService.getByRole(ROLES.PARENT);
+      if(aud==="students"||aud==="parents") return userService.getByRole(ROLES.STUDENT);
       if(aud==="staff") return [...userService.getByRole(ROLES.ADMIN),...userService.getByRole(ROLES.BURSAR),...userService.getByRole(ROLES.TEACHER)];
       return userService.getAll();
     }

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#2340B0" />
+  <title>Report Sheet — ROYALBRIDGE INT'L SCHOOL</title>
+  <link rel="stylesheet" href="../../assets/css/style.css" />
+  <link rel="stylesheet" href="../../assets/css/components.css" />
+  <link rel="stylesheet" href="../../assets/css/responsive.css" />
+  <link rel="stylesheet" href="../../assets/css/report-sheet.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+</head>
+<body>
+  <header class="topbar no-print" style="position:sticky">
+    <div class="flex items-center gap-md">
+      <img class="brand-logo" data-brand-logo alt="logo" />
+      <div>
+        <div class="font-semibold" data-brand-name>ROYALBRIDGE INT'L SCHOOL</div>
+        <div class="text-muted text-xs" id="reportSubtitle">Report Sheet</div>
+      </div>
+    </div>
+    <div class="flex items-center gap-sm">
+      <select class="form-select" id="reportsSelect" style="max-width:260px;display:none"></select>
+      <button class="btn btn-secondary btn-sm" id="backBtn"><i class="fas fa-arrow-left"></i> Back</button>
+      <button class="btn btn-primary btn-sm" id="printBtn"><i class="fas fa-print"></i> Print / PDF</button>
+    </div>
+  </header>
+
+  <main class="content" style="max-width:100%">
+    <div class="rs-toolbar no-print mb-lg">
+      <span class="badge" id="statusBadge" style="display:none"></span>
+    </div>
+    <div id="reportRoot" class="rs-wrap"></div>
+  </main>
+
+  <script type="module">
+    import { initApp } from "../../assets/js/app.js";
+    import { requireAuth, getCurrentUser } from "../../assets/js/auth.js";
+    import { ROLES, CURRENT_TERM, REPORT_TYPES, RESULT_STATUS_LABELS } from "../../assets/js/config.js";
+    import { buildReportModel } from "../../assets/js/reporting.js";
+    import { renderReportSheet, printReport } from "../../assets/js/reportSheet.js";
+    import { resultService, sessionService } from "../../assets/js/services.js";
+    import { whenDataReady } from "../../assets/js/data/store.js";
+    import { query } from "../../assets/js/utils.js";
+
+    initApp();
+    requireAuth();
+
+    const params = new URLSearchParams(location.search);
+    const me = getCurrentUser();
+
+    function levelLabel() {
+      return params.get("type") === REPORT_TYPES.CUMULATIVE ? "Cumulative Report Sheet" : "Termly Report Sheet";
+    }
+
+    function draw() {
+      const studentId = params.get("studentId");
+      const term = params.get("term") || (sessionService.getCurrentTerm().name || CURRENT_TERM);
+      const type = params.get("type") || REPORT_TYPES.TERMLY;
+      const isCumulative = type === REPORT_TYPES.CUMULATIVE;
+      const model = buildReportModel({ studentId, termName: term, reportType: isCumulative ? REPORT_TYPES.CUMULATIVE : REPORT_TYPES.TERMLY });
+      const root = query("#reportRoot");
+
+      if (!model) {
+        root.innerHTML = `<div class="alert alert-warning">No report found for the selected student.</div>`;
+        return;
+      }
+      query("#reportSubtitle").textContent = `${model.meta.student.name} · ${levelLabel()}`;
+      query("#backBtn").style.display = me && me.role === ROLES.STUDENT ? "none" : "";
+
+      const badge = query("#statusBadge");
+      if (model.status) {
+        badge.style.display = "";
+        badge.textContent = RESULT_STATUS_LABELS[model.status] || model.status;
+        badge.className = "badge " + (model.status === "published" ? "badge-success" : model.status === "returned" ? "badge-danger" : "badge-warning");
+      }
+      renderReportSheet(root, model);
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      query("#printBtn").addEventListener("click", printReport);
+      query("#backBtn").addEventListener("click", () => history.back());
+      draw();
+      whenDataReady().then(draw);
+    });
+  </script>
+</body>
+</html>

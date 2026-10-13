@@ -63,18 +63,6 @@ function getNavItems(role) {
       { href: "announcements.html", icon: "fa-bullhorn", label: "Announcements" }
     ];
   }
-  if (role === "parent") {
-    return [
-      { href: "dashboard.html", icon: "fa-tachometer-alt", label: "Dashboard" },
-      { href: "children.html", icon: "fa-child", label: "My Children" },
-      { href: "fees.html", icon: "fa-money-bill-wave", label: "Fees" },
-      { href: "payments.html", icon: "fa-receipt", label: "Payments" },
-      { href: "receipts.html", icon: "fa-file-invoice", label: "Receipts" },
-      { href: "results.html", icon: "fa-graduation-cap", label: "Results" },
-      { href: "attendance.html", icon: "fa-calendar-check", label: "Attendance" },
-      { href: "announcements.html", icon: "fa-bullhorn", label: "Announcements" }
-    ];
-  }
   return [];
 }
 
@@ -143,9 +131,7 @@ function initUserMenu() {
       ? `${user.staff.firstName} ${user.staff.lastName}`
       : user.student
         ? `${user.student.firstName} ${user.student.lastName}`
-        : user.parent
-          ? `${user.parent.firstName} ${user.parent.lastName}`
-          : user.email;
+        : user.email;
     userInfo.innerHTML = `<div class="user-name">${name}</div><div class="user-role">${user.role}</div>`;
   }
   logoutBtns.forEach((btn) => on(btn, "click", (e) => { e.preventDefault(); logout(); }));

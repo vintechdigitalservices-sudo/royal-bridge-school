@@ -1,7 +1,6 @@
 import { ROLES } from "./config.js";
 import { storage } from "./storage.js";
 import { appPath } from "./paths.js";
-import { userService } from "./services.js";
 import { getAuthClient } from "./firebase/client.js";
 import { repos } from "./repositories/index.js";
 
@@ -29,7 +28,6 @@ export function dashboardPathForRole(role) {
   if (role === ROLES.BURSAR) return appPath("pages/bursar/dashboard.html");
   if (role === ROLES.TEACHER) return appPath("pages/teacher/dashboard.html");
   if (role === ROLES.STUDENT) return appPath("pages/student/dashboard.html");
-  if (role === ROLES.PARENT) return appPath("pages/parent/dashboard.html");
   return appPath("index.html");
 }
 
@@ -88,20 +86,8 @@ export async function resolveProfile(uid) {
   return profile;
 }
 
-async function localLogin(email, password) {
-  const user = userService.findByEmail(email);
-  if (!user) throw new Error("Invalid credentials");
-  if (user.password !== password) throw new Error("Invalid credentials");
-  if (!user.active) throw new Error("Account is not active");
-  const { db } = await import("./db.js");
-  const data = db.get();
-  const staff = (data.staff || []).find((s) => s.staffId === user.staffId);
-  const student = (data.students || []).find((s) => s.studentId === user.studentId);
-  const parent = (data.parents || []).find((p) => p.parentId === user.parentId);
-  const current = { ...user, staff, student, parent, uid: user.userId || user.uid, authProvider: "local" };
-  storage.setCurrentUser(current);
-  redirectByRole(current.role);
-  return current;
+async function localLogin() {
+  throw new Error("Cannot reach the login service. Check your connection and try again.");
 }
 
 export async function login(email, password) {
@@ -109,8 +95,8 @@ export async function login(email, password) {
   try {
     client = await getAuthClient();
   } catch (err) {
-    console.warn("Firebase Auth unavailable; using offline login fallback.", err);
-    return localLogin(email, password);
+    console.warn("Firebase Auth unavailable.", err);
+    return localLogin();
   }
   const { auth, signInWithEmailAndPassword, signOut } = client;
 

@@ -75,3 +75,36 @@ npm run verify        # read back + print per-collection counts
 
 Service-account key path: `FIREBASE_SERVICE_ACCOUNT` env var, else the `*firebase-adminsdk*.json`
 in the repo root (git-ignored).
+
+## Client integration (V2)
+
+The browser talks to Firestore through a fixed stack — no page issues ad-hoc queries:
+
+```
+UI pages ──► services.js ──► data/store.js (hydrated mirror) ──► repositories/*.js ──► Firestore
+                                                      │
+                                          reporting.js / reportSheet.js (pure derivations + rendering)
+```
+
+- `assets/js/firebase/config.js` + `client.js` — public config and lazy modular SDK init (gstatic ESM).
+- `assets/js/repositories/*.js` — one repository per collection; `Timestamp → ISO` normalisation.
+- `assets/js/data/store.js` — hydrates all collections into an in-memory mirror; exposes
+  `whenDataReady`, `list/find/filter`, and **optimistic** `createRecord/updateRecord/removeRecord`
+  (revert + `data:error` event on failure — never a silent fake success).
+- `assets/js/services.js` — domain services reading the mirror and persisting through the store.
+- `assets/js/reporting.js` — calculations only: weights (CA 20 / Mid 20 / Exam 60), grading,
+  class positions (competition ranking), and cumulative averages across terms 1–3.
+- `assets/js/reportSheet.js` + `assets/css/report-sheet.css` — renders the **3-page** report sheet
+  (cover / academics / affective+psychomotor+comments); print-to-PDF via the browser.
+- `pages/reports/view.html?studentId=..&term=..&type=termly|cumulative` — the single report viewer
+  used by admin, teacher and student.
+
+### Result workflow wiring
+
+- Teacher entry (`pages/teacher/results.html`) upserts per-subject scores into the student's
+  term `results` doc; editing a non-draft result resets it to `draft`.
+- Submitting sets `submitted`; Admin (`pages/admin/results.html`) may `return`, `approve`, then
+  `publish` (individually or bulk per class+term). Publishing notifies the student.
+- `localStorage` is used only for the cached session profile and notification UI preferences.
+  The legacy offline login/seed database (`db.js`/`seed.js`) has been removed.
+

@@ -5,7 +5,7 @@
    - Network-only for API/backend requests (never cache auth, payments or dynamic data).
    - Offline fallback page when a navigation request fails.
 */
-const CACHE_VERSION = "rbi-portal-v5";
+const CACHE_VERSION = "rbi-portal-v6";
 const OFFLINE_URL = "offline.html";
 
 const PRECACHE_ASSETS = [
@@ -16,6 +16,7 @@ const PRECACHE_ASSETS = [
   "./assets/css/style.css",
   "./assets/css/components.css",
   "./assets/css/responsive.css",
+  "./assets/css/report-sheet.css",
   "./assets/images/logo.jpg",
   "./assets/images/icon-192.png",
   "./assets/images/icon-512.png",
@@ -24,10 +25,10 @@ const PRECACHE_ASSETS = [
   "./assets/js/app.js",
   "./assets/js/auth.js",
   "./assets/js/config.js",
-  "./assets/js/db.js",
-  "./assets/js/seed.js",
   "./assets/js/storage.js",
   "./assets/js/services.js",
+  "./assets/js/reporting.js",
+  "./assets/js/reportSheet.js",
   "./assets/js/navigation.js",
   "./assets/js/modal.js",
   "./assets/js/forms.js",

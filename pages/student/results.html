@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#2340B0" />
   <title>Check Results — ROYALBRIDGE INT'L SCHOOL</title>
   <link rel="stylesheet" href="../../assets/css/style.css" />
   <link rel="stylesheet" href="../../assets/css/components.css" />
@@ -32,8 +33,8 @@
         <div class="flex items-center gap-md" data-user-info></div>
       </header>
       <main class="content">
-        <section class="card mb-lg">
-          <div class="card-header">
+        <section class="card">
+          <div class="card-header" style="flex-wrap:wrap">
             <div class="flex items-center gap-md flex-wrap">
               <select class="form-select" style="max-width:200px" id="termSel">
                 <option value="First Term">First Term</option>
@@ -41,10 +42,12 @@
                 <option value="Third Term">Third Term</option>
               </select>
             </div>
+            <div class="flex items-center gap-sm">
+              <a class="btn btn-secondary" id="cumulativeBtn" style="display:none" href="#"><i class="fas fa-layer-group"></i> Cumulative</a>
+              <a class="btn btn-primary" id="reportBtn" style="display:none" href="#"><i class="fas fa-file-lines"></i> Full Report Sheet</a>
+            </div>
           </div>
-          <div class="card-body">
-            <div id="summary" class="text-muted">Loading…</div>
-          </div>
+          <div id="summary" class="text-muted mb-md">Loading…</div>
           <div class="table-container">
             <table class="table">
               <thead><tr><th>Subject</th><th>C/A 20</th><th>Mid 20</th><th>Exam 60</th><th>Total 100</th><th>Remark</th></tr></thead>
@@ -60,55 +63,69 @@
     import { initApp } from "../../assets/js/app.js";
     import { requireRole, getCurrentUser } from "../../assets/js/auth.js";
     import { ROLES } from "../../assets/js/config.js";
-    import { subjectService, resultService } from "../../assets/js/services.js";
+    import { resultService } from "../../assets/js/services.js";
+    import { buildReportModel } from "../../assets/js/reporting.js";
     import { query } from "../../assets/js/utils.js";
-    import { whenDataReady, list } from "../../assets/js/data/store.js";
+    import { whenDataReady } from "../../assets/js/data/store.js";
 
     initApp();
     requireRole(ROLES.STUDENT);
-
-    function nameMap() {
-      const map = {};
-      const ss = list("schoolSettings")[0];
-      const rc = ss && ss.reportConfig ? ss.reportConfig : {};
-      const sets = [...(rc.nurserySubjects || []), ...(rc.basicTermlySubjects || []), ...(rc.basicCumulativeSubjects || [])];
-      sets.forEach((s) => { if (s && s.code) map[s.code] = s.name; });
-      subjectService.getAll().forEach((s) => { if (s.code) map[s.code] = s.name; });
-      return map;
-    }
 
     function render() {
       const u = getCurrentUser();
       const s = u && u.student;
       const tbody = query("#tbody");
       const summary = query("#summary");
-      if (!s) { tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted">No student record linked.</td></tr>`; summary.textContent = ""; return; }
+      const reportBtn = query("#reportBtn");
+      const cumulativeBtn = query("#cumulativeBtn");
+      reportBtn.style.display = "none";
+      cumulativeBtn.style.display = "none";
+
+      if (!s) {
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted">No student record linked.</td></tr>`;
+        summary.textContent = "";
+        return;
+      }
 
       const term = query("#termSel").value;
-      const results = resultService.getPublishedForStudent(s.studentId).filter((r) => r.termName === term);
-      if (!results.length) {
-        summary.textContent = `${s.firstName} ${s.lastName} • ${term}`;
+      const published = resultService.getPublishedForStudent(s.studentId).filter((r) => r.termName === term);
+      summary.innerHTML = `<strong>${s.firstName} ${s.lastName}</strong> · ${term}`;
+
+      if (!published.length) {
         tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted">No published results for ${term} yet.</td></tr>`;
         return;
       }
-      const r = results[0];
-      const names = nameMap();
-      const entries = Array.isArray(r.subjects)
-        ? r.subjects.map((v, i) => ({ code: v.code || String(i), ...v }))
-        : Object.entries(r.subjects || {}).map(([code, v]) => ({ code, ...v }));
 
-      summary.innerHTML = `<strong>${s.firstName} ${s.lastName}</strong> • ${term} • Average: <strong>${r.average ?? "—"}</strong>${r.classHighestAverage ? ` • Class High: ${r.classHighestAverage}` : ""}${r.classLowestAverage ? ` • Class Low: ${r.classLowestAverage}` : ""}`;
+      const model = buildReportModel({ studentId: s.studentId, termName: term, reportType: "termly" });
+      if (!model || !model.academic || !model.academic.rows.length) {
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted">No result rows available.</td></tr>`;
+        return;
+      }
 
-      tbody.innerHTML = entries.map((e) => `
+      summary.innerHTML = `<strong>${s.firstName} ${s.lastName}</strong> · ${term} · Average: <strong>${model.academic.average}</strong>`
+        + (model.position ? ` · Position: <strong>${model.position}</strong>` : "")
+        + (model.classStats ? ` · Class High: ${model.classStats.highest} · Class Low: ${model.classStats.lowest}` : "");
+
+      tbody.innerHTML = model.academic.rows.map((r) => `
         <tr>
-          <td>${names[e.code] || e.code}</td>
-          <td>${e.ca ?? "—"}</td>
-          <td>${e.mid ?? "—"}</td>
-          <td>${e.exam ?? "—"}</td>
-          <td><strong>${e.total ?? "—"}</strong></td>
-          <td>${e.remark || e.grade || "—"}</td>
+          <td>${r.label}</td>
+          <td>${r.ca ?? "—"}</td>
+          <td>${r.mid ?? "—"}</td>
+          <td>${r.exam ?? "—"}</td>
+          <td><strong>${r.total ?? "—"}</strong></td>
+          <td>${r.remark || "—"}</td>
         </tr>
       `).join("");
+
+      const base = `../reports/view.html?studentId=${encodeURIComponent(s.studentId)}`;
+      reportBtn.href = `${base}&term=${encodeURIComponent(term)}&type=termly`;
+      reportBtn.style.display = "";
+
+      const hasCumulative = resultService.getPublishedForStudent(s.studentId).some((r) => r.termSlug === "third-term");
+      if (hasCumulative) {
+        cumulativeBtn.href = `${base}&type=cumulative`;
+        cumulativeBtn.style.display = "";
+      }
     }
 
     document.addEventListener("DOMContentLoaded", () => {

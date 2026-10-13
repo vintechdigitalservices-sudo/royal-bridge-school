@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#2340B0" />
   <title>Results — ROYALBRIDGE INT'L SCHOOL</title>
   <link rel="stylesheet" href="../../assets/css/style.css" />
   <link rel="stylesheet" href="../../assets/css/components.css" />
@@ -32,35 +33,185 @@
         <div class="flex items-center gap-md" data-user-info></div>
       </header>
       <main class="content">
+        <div class="grid grid-stats mb-lg">
+          <div class="stat-card"><div class="stat-label">Awaiting Approval</div><div class="stat-value" id="cSubmitted">0</div></div>
+          <div class="stat-card"><div class="stat-label">Approved</div><div class="stat-value" id="cApproved">0</div></div>
+          <div class="stat-card"><div class="stat-label">Returned</div><div class="stat-value" id="cReturned">0</div></div>
+          <div class="stat-card"><div class="stat-label">Published</div><div class="stat-value" id="cPublished">0</div></div>
+        </div>
         <div class="card">
-          <div class="card-header"><h2 class="card-title">Submitted Results</h2></div>
-          <div class="table-container"><table class="table"><thead><tr><th>Result ID</th><th>Class</th><th>Term</th><th>Status</th><th>Action</th></tr></thead><tbody id="tbody"></tbody></table></div>
+          <div class="card-header" style="flex-wrap:wrap">
+            <div class="flex items-center gap-md flex-wrap">
+              <select class="form-select" style="max-width:200px" id="classSel"><option value="">All classes</option></select>
+              <select class="form-select" style="max-width:180px" id="termSel"><option value="">All terms</option></select>
+              <select class="form-select" style="max-width:180px" id="statusSel"><option value="">All statuses</option></select>
+            </div>
+            <button class="btn btn-primary" id="publishAll"><i class="fas fa-bullhorn"></i> Publish Approved (class+term)</button>
+          </div>
+          <div class="table-container">
+            <table class="table">
+              <thead><tr><th>Student</th><th>Class</th><th>Term</th><th>Avg</th><th>Status</th><th>Actions</th></tr></thead>
+              <tbody id="tbody"></tbody>
+            </table>
+          </div>
         </div>
       </main>
     </div>
     <nav class="bottom-nav" data-bottom-nav></nav>
   </div>
   <script type="module">
-    import {initApp} from "../../assets/js/app.js";
-    import {requireRole} from "../../assets/js/auth.js";
-    import {ROLES} from "../../assets/js/config.js";
-    import {resultService, classService, userService, notificationService} from "../../assets/js/services.js";
-    import {query} from "../../assets/js/utils.js";
-    import {toast} from "../../assets/js/notifications.js";
-    import {whenDataReady} from "../../assets/js/data/store.js";
-    initApp(); requireRole(ROLES.ADMIN);
-    function notifyParents(r){
-      const studentIds=(r.records||[]).map(x=>x.studentId);
-      const parentIds=[...new Set(studentIds.flatMap(id=>userService.getParentsOfStudent(id).map(u=>u.userId)))];
-      notificationService.createForUsers(parentIds,{title:"Result Published",message:`Results for ${r.termName} have been approved and are now available.`,type:"result",link:"pages/parent/results.html"});
+    import { initApp } from "../../assets/js/app.js";
+    import { requireRole } from "../../assets/js/auth.js";
+    import { ROLES, RESULT_STATUS, RESULT_STATUS_LABELS } from "../../assets/js/config.js";
+    import { resultService, classService, studentService, userService, notificationService } from "../../assets/js/services.js";
+    import { query } from "../../assets/js/utils.js";
+    import { toast } from "../../assets/js/notifications.js";
+    import { showConfirm } from "../../assets/js/modal.js";
+    import { whenDataReady } from "../../assets/js/data/store.js";
+
+    initApp();
+    requireRole(ROLES.ADMIN);
+
+    const badgeFor = (s) => (s === "published" ? "badge-success" : s === "approved" ? "badge" : s === "returned" ? "badge-danger" : s === "submitted" ? "badge-warning" : "badge-neutral");
+
+    function studentName(id) {
+      const s = studentService.getById(id);
+      return s ? `${s.firstName} ${s.lastName}` : id;
     }
-    function render(){
-      const results=resultService.getAll(); const classes=classService.getAll().reduce((m,c)=>{m[c.classId]=c.name+(c.arm?" "+c.arm:""); return m;},{});
-      query("#tbody").innerHTML=results.map(r=>`<tr><td>${r.resultId}</td><td>${classes[r.classId]||r.classId}</td><td>${r.termName}</td><td><span class="badge">${r.status}</span></td><td class="flex gap-sm"><button class="btn btn-sm btn-primary" data-approve="${r.resultId}">Approve</button><button class="btn btn-sm btn-secondary" data-reject="${r.resultId}">Reject</button></td></tr>`).join("");
-      document.querySelectorAll("[data-approve]").forEach(b=>b.addEventListener("click",()=>{const r=resultService.approve(b.getAttribute("data-approve")); if(r)notifyParents(r); toast("Result approved","success"); render();}));
-      document.querySelectorAll("[data-reject]").forEach(b=>b.addEventListener("click",()=>{resultService.reject(b.getAttribute("data-reject")); toast("Result rejected","warning"); render();}));
+    function classLabel(id) {
+      const c = classService.getById(id);
+      return c ? `${c.name}${c.arm ? " " + c.arm : ""}` : id;
     }
-    document.addEventListener("DOMContentLoaded",()=>{render(); whenDataReady().then(render);});
+
+    function actionsFor(r) {
+      const view = `<a class="btn btn-sm btn-secondary" href="../reports/view.html?studentId=${encodeURIComponent(r.studentId)}&term=${encodeURIComponent(r.termName || "")}">View</a>`;
+      let wf = "";
+      if (r.status === "submitted" || r.status === "draft") {
+        wf = `<button class="btn btn-sm btn-primary" data-approve="${r.resultId}">Approve</button>
+              <button class="btn btn-sm btn-secondary" data-return="${r.resultId}">Return</button>`;
+      } else if (r.status === "approved") {
+        wf = `<button class="btn btn-sm btn-primary" data-publish="${r.resultId}">Publish</button>
+              <button class="btn btn-sm btn-secondary" data-return="${r.resultId}">Return</button>`;
+      } else if (r.status === "published") {
+        wf = "";
+      } else if (r.status === "returned") {
+        wf = `<span class="text-muted text-sm">Awaiting teacher</span>`;
+      }
+      return `<div class="flex gap-sm flex-wrap" style="justify-content:flex-end">${view}${wf}</div>`;
+    }
+
+    function counts() {
+      const all = resultService.getAll();
+      const by = (s) => all.filter((r) => r.status === s).length;
+      query("#cSubmitted").textContent = by("submitted") + by("draft");
+      query("#cApproved").textContent = by("approved");
+      query("#cReturned").textContent = by("returned");
+      query("#cPublished").textContent = by("published");
+    }
+
+    function render() {
+      const classId = query("#classSel").value;
+      const term = query("#termSel").value;
+      const status = query("#statusSel").value;
+      const rows = resultService
+        .getAll()
+        .filter((r) => (!classId || r.classId === classId) && (!term || r.termName === term) && (!status || r.status === status))
+        .sort((a, b) => String(a.classId).localeCompare(String(b.classId)) || String(a.studentId).localeCompare(String(b.studentId)));
+      query("#tbody").innerHTML = rows.length
+        ? rows
+            .map(
+              (r) => `<tr>
+          <td>${studentName(r.studentId)}</td>
+          <td>${classLabel(r.classId)}</td>
+          <td>${r.termName || ""}</td>
+          <td>${r.average != null ? r.average : "–"}</td>
+          <td><span class="badge ${badgeFor(r.status)}">${RESULT_STATUS_LABELS[r.status] || r.status || "draft"}</span></td>
+          <td>${actionsFor(r)}</td>
+        </tr>`
+            )
+            .join("")
+        : `<tr><td colspan="6" class="text-center text-muted">No results found.</td></tr>`;
+      wire();
+    }
+
+    function wire() {
+      document.querySelectorAll("[data-approve]").forEach((b) =>
+        b.addEventListener("click", () => {
+          resultService.approveResult(b.getAttribute("data-approve"));
+          toast("Result approved", "success");
+          render();
+          counts();
+        })
+      );
+      document.querySelectorAll("[data-return]").forEach((b) =>
+        b.addEventListener("click", () => {
+          resultService.returnResult(b.getAttribute("data-return"));
+          toast("Result returned to teacher", "warning");
+          render();
+          counts();
+        })
+      );
+      document.querySelectorAll("[data-publish]").forEach((b) =>
+        b.addEventListener("click", () => {
+          publish(b.getAttribute("data-publish"));
+        })
+      );
+    }
+
+    function publish(id) {
+      const r = resultService.getById(id);
+      resultService.publishResult(id);
+      notifyStudent(r);
+      toast("Result published", "success");
+      render();
+      counts();
+    }
+
+    function notifyStudent(r) {
+      const users = userService.getAll().filter((u) => u.studentId === r.studentId);
+      notificationService.createForUsers(
+        users.map((u) => u.userId),
+        {
+          title: "Result Published",
+          message: `Your ${r.termName} result is now available.`,
+          type: "result_published",
+          link: "pages/student/results.html"
+        }
+      );
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      query("#termSel").innerHTML =
+        '<option value="">All terms</option>' + ["First Term", "Second Term", "Third Term"].map((t) => `<option value="${t}">${t}</option>`).join("");
+      query("#statusSel").innerHTML =
+        '<option value="">All statuses</option>' + Object.keys(RESULT_STATUS_LABELS).map((s) => `<option value="${s}">${RESULT_STATUS_LABELS[s]}</option>`).join("");
+      query("#classSel").innerHTML =
+        '<option value="">All classes</option>' + classService.getAll().map((c) => `<option value="${c.classId}">${c.name}${c.arm ? " " + c.arm : ""}</option>`).join("");
+      ["#classSel", "#termSel", "#statusSel"].forEach((sel) => query(sel).addEventListener("change", render));
+      query("#publishAll").addEventListener("click", async () => {
+        const classId = query("#classSel").value;
+        const term = query("#termSel").value;
+        if (!classId || !term) {
+          toast("Select a class and term to bulk publish", "warning");
+          return;
+        }
+        const ok = await showConfirm(`Publish all approved ${term} results for ${classLabel(classId)}?`, { title: "Publish results", confirmLabel: "Publish" });
+        if (!ok) return;
+        const n = resultService.publishClassTerm({ classId, termName: term });
+        resultService.getByClassTerm(classId, term).forEach(notifyStudent);
+        toast(`${n} result(s) published`, "success");
+        render();
+        counts();
+      });
+      render();
+      counts();
+      whenDataReady().then(() => {
+        query("#classSel").innerHTML =
+          '<option value="">All classes</option>' + classService.getAll().map((c) => `<option value="${c.classId}">${c.name}${c.arm ? " " + c.arm : ""}</option>`).join("");
+        render();
+        counts();
+      });
+    });
   </script>
 </body>
 </html>

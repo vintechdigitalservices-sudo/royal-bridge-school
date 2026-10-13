@@ -71,10 +71,10 @@
           message:`${amount} recorded for ${name} (${p.feeCategory}). Receipt ${p.receiptNumber}.`,
           type:"payment", link:"pages/admin/payments.html"
         });
-        notificationService.createForUsers(userService.getParentsOfStudent(studentId).map(u=>u.userId),{
+        notificationService.createForUsers(userService.getAll().filter(u=>u.studentId===studentId).map(u=>u.userId),{
           title:"Payment Recorded",
           message:`A payment of ${amount} for ${name} was recorded. Receipt ${p.receiptNumber}.`,
-          type:"payment", link:"pages/parent/payments.html"
+          type:"payment", link:"pages/student/receipts.html"
         });
         toast(`Payment recorded. Receipt: ${p.receiptNumber}`,"success");
         query("#amount").value=""; query("#notes").value="";

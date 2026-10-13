@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#2340B0" />
   <title>Results — ROYALBRIDGE INT'L SCHOOL</title>
   <link rel="stylesheet" href="../../assets/css/style.css" />
   <link rel="stylesheet" href="../../assets/css/components.css" />
@@ -27,84 +28,185 @@
       <header class="topbar">
         <div class="flex items-center gap-md">
           <button class="btn btn-ghost btn-icon hide-desktop" data-sidebar-toggle><i class="fas fa-bars"></i></button>
-          <h1 class="card-title">Results</h1>
+          <h1 class="card-title">Result Entry</h1>
         </div>
         <div class="flex items-center gap-md" data-user-info></div>
       </header>
       <main class="content">
         <div class="card mb-lg">
-          <div class="card-header">
+          <div class="card-header" style="flex-wrap:wrap">
             <div class="flex items-center gap-md flex-wrap">
-              <select class="form-select" style="max-width:220px" id="classSel"><option value="">Class</option></select>
+              <select class="form-select" style="max-width:200px" id="classSel"><option value="">Class</option></select>
               <select class="form-select" style="max-width:220px" id="subjectSel"><option value="">Subject</option></select>
-              <select class="form-select" style="max-width:220px" id="termSel"><option value="First Term">First Term</option><option value="Second Term">Second Term</option><option value="Third Term">Third Term</option></select>
+              <select class="form-select" style="max-width:180px" id="termSel"></select>
             </div>
-            <button class="btn btn-primary" id="submitResults">Submit Results</button>
+            <div class="flex items-center gap-sm">
+              <button class="btn btn-secondary" id="saveDraft"><i class="fas fa-floppy-disk"></i> Save Draft</button>
+              <button class="btn btn-primary" id="submitResults"><i class="fas fa-paper-plane"></i> Submit</button>
+            </div>
           </div>
           <div class="table-container">
             <table class="table">
-              <thead><tr><th>Name</th><th>CA (40)</th><th>Exam (60)</th><th>Total</th><th>Grade</th></tr></thead>
+              <thead><tr><th>Name</th><th>C/A (20)</th><th>Mid Term (20)</th><th>Exam (60)</th><th>Total</th><th>Grade</th></tr></thead>
               <tbody id="tbody"></tbody>
             </table>
           </div>
+          <p class="text-muted text-sm mt-md">Weights: C/A 20 · Mid Term 20 · Exam 60. Saving stores drafts; Submit sends results to Admin for approval.</p>
         </div>
       </main>
     </div>
     <nav class="bottom-nav" data-bottom-nav></nav>
   </div>
   <script type="module">
-    import {initApp} from "../../assets/js/app.js";
-    import {requireRole} from "../../assets/js/auth.js";
-    import {ROLES} from "../../assets/js/config.js";
-    import {classService, subjectService, studentService, resultService, userService, notificationService} from "../../assets/js/services.js";
-    import {query} from "../../assets/js/utils.js";
-    import {getCurrentUser} from "../../assets/js/auth.js";
-    import {toast} from "../../assets/js/notifications.js";
-    import {whenDataReady} from "../../assets/js/data/store.js";
-    initApp(); requireRole(ROLES.TEACHER);
-    let students=[];
-    function grade(t){ if(t>=90)return "A"; if(t>=80)return "B"; if(t>=70)return "C"; if(t>=60)return "D"; if(t>=50)return "E"; return "F"; }
-    function render(){
-      const cls=query("#classSel").value;
-      const list=students.filter(s=>!cls||s.classId===cls);
-      query("#tbody").innerHTML=list.map(s=>`<tr>
-        <td>${s.firstName} ${s.lastName}</td>
-        <td><input class="form-input" style="width:80px" type="number" min="0" max="40" id="ca_${s.studentId}" value="0" /></td>
-        <td><input class="form-input" style="width:80px" type="number" min="0" max="60" id="ex_${s.studentId}" value="0" /></td>
-        <td id="tot_${s.studentId}">0</td>
-        <td id="gr_${s.studentId}">F</td>
-      </tr>`).join("");
-      list.forEach(s=>{
-        query(`#ca_${s.studentId}`).addEventListener("input",upd); query(`#ex_${s.studentId}`).addEventListener("input",upd);
-      });
-      function upd(){ list.forEach(s=>{ const ca=Number(query(`#ca_${s.studentId}`).value)||0; const ex=Number(query(`#ex_${s.studentId}`).value)||0; const t=Math.min(ca+ex,100); query(`#tot_${s.studentId}`).textContent=t; query(`#gr_${s.studentId}`).textContent=grade(t); }); }
-      upd();
+    import { initApp } from "../../assets/js/app.js";
+    import { requireRole, getCurrentUser } from "../../assets/js/auth.js";
+    import { ROLES, CURRENT_TERM, RESULT_STATUS } from "../../assets/js/config.js";
+    import { classService, studentService, resultService, userService, notificationService, sessionService } from "../../assets/js/services.js";
+    import { subjectsFor, levelGroupForClass } from "../../assets/js/reporting.js";
+    import { query } from "../../assets/js/utils.js";
+    import { toast } from "../../assets/js/notifications.js";
+    import { whenDataReady } from "../../assets/js/data/store.js";
+
+    initApp();
+    requireRole(ROLES.TEACHER);
+
+    let students = [];
+
+    function termOptions() {
+      const current = sessionService.getCurrentTerm().name || CURRENT_TERM;
+      return ["First Term", "Second Term", "Third Term"]
+        .map((t) => `<option value="${t}"${t === current ? " selected" : ""}>${t}</option>`)
+        .join("");
     }
-    document.addEventListener("DOMContentLoaded",()=>{
-      query("#classSel").innerHTML='<option value="">Class</option>'+classService.getAll().map(c=>`<option value="${c.classId}">${c.name}${c.arm?" "+c.arm:""}</option>`).join("");
-      query("#subjectSel").innerHTML='<option value="">Subject</option>'+subjectService.getAll().map(s=>`<option value="${s.subjectId}">${s.name}</option>`).join("");
-      students=studentService.getAll();
+
+    function subjectsForSelection() {
+      const classId = query("#classSel").value;
+      if (!classId) return [];
+      const group = levelGroupForClass(classId);
+      return subjectsFor(group, "termly").map((s) => ({ code: s.code, label: s.label }));
+    }
+
+    function fillSubjects() {
+      const list = subjectsForSelection();
+      query("#subjectSel").innerHTML =
+        '<option value="">Subject</option>' + list.map((s) => `<option value="${s.code}">${s.label}</option>`).join("");
+    }
+
+    function existingMap(classId, termName) {
+      const map = {};
+      resultService.getByClassTerm(classId, termName).forEach((r) => {
+        map[r.studentId] = r;
+      });
+      return map;
+    }
+
+    function render() {
+      const classId = query("#classSel").value;
+      const code = query("#subjectSel").value;
+      const term = query("#termSel").value;
+      const list = students.filter((s) => !classId || s.classId === classId);
+      const existing = classId && term ? existingMap(classId, term) : {};
+      query("#tbody").innerHTML = list
+        .map((s) => {
+          const sc = code && existing[s.studentId] ? (existing[s.studentId].subjects || {})[code] || {} : {};
+          return `<tr>
+            <td>${s.firstName} ${s.lastName}</td>
+            <td><input class="form-input rs-ca" style="width:80px" type="number" min="0" max="20" data-id="${s.studentId}" value="${sc.ca != null ? sc.ca : ""}" /></td>
+            <td><input class="form-input rs-mid" style="width:80px" type="number" min="0" max="20" data-id="${s.studentId}" value="${sc.mid != null ? sc.mid : ""}" /></td>
+            <td><input class="form-input rs-exam" style="width:80px" type="number" min="0" max="60" data-id="${s.studentId}" value="${sc.exam != null ? sc.exam : ""}" /></td>
+            <td id="tot_${s.studentId}">–</td>
+            <td id="gr_${s.studentId}">–</td>
+          </tr>`;
+        })
+        .join("");
+      list.forEach((s) => {
+        ["rs-ca", "rs-mid", "rs-exam"].forEach((cls) => {
+          const el = document.querySelector(`.${cls}[data-id="${s.studentId}"]`);
+          if (el) el.addEventListener("input", updateRow);
+        });
+      });
+      updateRow();
+    }
+
+    function readRow(id) {
+      const ca = Number(document.querySelector(`.rs-ca[data-id="${id}"]`)?.value) || 0;
+      const mid = Number(document.querySelector(`.rs-mid[data-id="${id}"]`)?.value) || 0;
+      const exam = Number(document.querySelector(`.rs-exam[data-id="${id}"]`)?.value) || 0;
+      return resultService.scoreFor(ca, mid, exam);
+    }
+
+    function updateRow() {
+      students
+        .filter((s) => !query("#classSel").value || s.classId === query("#classSel").value)
+        .forEach((s) => {
+          const sc = readRow(s.studentId);
+          const t = query(`#tot_${s.studentId}`);
+          const g = query(`#gr_${s.studentId}`);
+          if (t) t.textContent = sc.total;
+          if (g) g.textContent = sc.grade;
+        });
+    }
+
+    function save(submit) {
+      const classId = query("#classSel").value;
+      const code = query("#subjectSel").value;
+      const term = query("#termSel").value;
+      if (!classId || !code) {
+        toast("Select class and subject", "warning");
+        return;
+      }
+      const list = students.filter((s) => s.classId === classId);
+      list.forEach((s) => {
+        resultService.upsertSubjectScore({
+          studentId: s.studentId,
+          classId,
+          termName: term,
+          subjectCode: code,
+          scores: readRow(s.studentId)
+        });
+      });
+      if (submit) {
+        resultService.submitResults({ classId, termName: term, studentIds: list.map((s) => s.studentId) });
+        const me = getCurrentUser();
+        const meName = me && me.staff ? `${me.staff.firstName} ${me.staff.lastName}` : me ? me.email : "A teacher";
+        const subjectLabel = subjectsForSelection().find((x) => x.code === code)?.label || code;
+        notificationService.createForUsers(
+          userService.getByRole(ROLES.ADMIN).map((u) => u.userId),
+          {
+            title: "Results Awaiting Approval",
+            message: `${meName} submitted ${subjectLabel} for ${classService.getById(classId)?.name || classId} (${term}).`,
+            type: "result",
+            link: "pages/admin/results.html"
+          }
+        );
+        toast("Results submitted for approval", "success");
+      } else {
+        toast("Drafts saved", "success");
+      }
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      query("#termSel").innerHTML = termOptions();
+      query("#classSel").innerHTML =
+        '<option value="">Class</option>' +
+        classService.getAll().map((c) => `<option value="${c.classId}">${c.name}${c.arm ? " " + c.arm : ""}</option>`).join("");
+      students = studentService.getAll();
+      query("#classSel").addEventListener("change", () => {
+        fillSubjects();
+        render();
+      });
+      query("#subjectSel").addEventListener("change", render);
+      query("#termSel").addEventListener("change", render);
+      query("#saveDraft").addEventListener("click", () => save(false));
+      query("#submitResults").addEventListener("click", () => save(true));
       render();
-      whenDataReady().then(()=>{ query("#classSel").innerHTML='<option value="">Class</option>'+classService.getAll().map(c=>`<option value="${c.classId}">${c.name}${c.arm?" "+c.arm:""}</option>`).join(""); query("#subjectSel").innerHTML='<option value="">Subject</option>'+subjectService.getAll().map(s=>`<option value="${s.subjectId}">${s.name}</option>`).join(""); students=studentService.getAll(); render(); });
-      query("#classSel").addEventListener("change",render);
-      query("#submitResults").addEventListener("click",()=>{
-        const cls=query("#classSel").value, subj=query("#subjectSel").value, term=query("#termSel").value;
-        if(!cls||!subj){toast("Select class and subject","warning"); return;}
-        const records=students.filter(s=>s.classId===cls).map(s=>{
-          const ca=Number(query(`#ca_${s.studentId}`).value)||0, ex=Number(query(`#ex_${s.studentId}`).value)||0, t=ca+ex;
-          return {studentId:s.studentId, ca, exam:ex, total:t, grade:grade(t), remark:""};
-        });
-        resultService.submit({classId:cls,subjectId:subj,termName:term,records});
-        const className=classService.getById?classService.getById(cls)?.name:cls;
-        const subjectName=subjectService.getById?subjectService.getById(subj)?.name:subj;
-        const me=getCurrentUser();
-        const meName=me&&me.staff?`${me.staff.firstName} ${me.staff.lastName}`:(me?me.email:"A teacher");
-        notificationService.createForUsers(userService.getByRole(ROLES.ADMIN).map(u=>u.userId),{
-          title:"Results Awaiting Approval",
-          message:`${meName} submitted ${subjectName||"results"} for ${className||"a class"} (${term}).`,
-          type:"result", link:"pages/admin/results.html"
-        });
-        toast("Results submitted (pending approval)","success");
+      whenDataReady().then(() => {
+        query("#classSel").innerHTML =
+          '<option value="">Class</option>' +
+          classService.getAll().map((c) => `<option value="${c.classId}">${c.name}${c.arm ? " " + c.arm : ""}</option>`).join("");
+        students = studentService.getAll();
+        fillSubjects();
+        render();
       });
     });
   </script>
