@@ -44,7 +44,9 @@
   </div>
   <script type="module">
     import { showModal, showAlert } from "../assets/js/modal.js";
+    import { initPasswordToggles } from "../assets/js/forms.js";
 
+    initPasswordToggles();
     const form = document.getElementById("activateForm");
     form.addEventListener("submit", async (e) => {
       e.preventDefault();

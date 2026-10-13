@@ -231,13 +231,19 @@ export const resultService = {
   }
 };
 
+function announcementTime(a) {
+  const v = a.createdAt || a.date || 0;
+  const t = new Date(v).getTime();
+  return isNaN(t) ? 0 : t;
+}
+
 export const announcementService = {
-  getAll() { return deepClone(getDb().announcements || []); },
-  getPublished() { return deepClone((getDb().announcements || []).filter((a) => a.status === "published")); },
+  getAll() { return deepClone(getDb().announcements || []).sort((a, b) => announcementTime(b) - announcementTime(a)); },
+  getPublished() { return deepClone((getDb().announcements || []).filter((a) => a.status === "published")).sort((a, b) => announcementTime(b) - announcementTime(a)); },
   create(data) {
     const d = getDb();
-    const a = { announcementId: uid(), date: new Date().toISOString().slice(0, 10), status: "published", ...data };
-    d.announcements.push(a);
+    const a = { announcementId: uid(), date: new Date().toISOString().slice(0, 10), createdAt: new Date().toISOString(), status: "published", ...data };
+    d.announcements.unshift(a);
     commit(d);
     return deepClone(a);
   }

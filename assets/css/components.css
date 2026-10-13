@@ -489,3 +489,25 @@ body.modal-open { overflow: hidden; }
 .custom-modal-list { list-style: none; margin: var(--spacing-sm) 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .custom-modal-list li { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--text-primary); }
 .custom-modal-list li i { width: 18px; text-align: center; color: var(--primary); }
+
+.password-wrap { position: relative; display: block; }
+.password-wrap .form-input { padding-right: 44px; }
+.password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 14px;
+}
+.password-toggle:hover { color: var(--primary); }
+.password-toggle:focus-visible { outline: 2px solid rgba(15, 123, 99, 0.3); outline-offset: 2px; }

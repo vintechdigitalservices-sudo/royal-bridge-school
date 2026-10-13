@@ -1,6 +1,7 @@
 import { SCHOOL_CONFIG } from "./config.js";
 import { initNavigation } from "./navigation.js";
 import { initModals } from "./modal.js";
+import { initPasswordToggles } from "./forms.js";
 
 function setConfig() {
   window.SCHOOL_CONFIG = SCHOOL_CONFIG;
@@ -19,6 +20,7 @@ export function initApp() {
   setConfig();
   initNavigation();
   initModals();
+  initPasswordToggles();
   registerServiceWorker();
 }
 
