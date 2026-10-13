@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard — ROYALBRIDGE INT'L SCHOOL</title>
+  <link rel="stylesheet" href="../../assets/css/style.css" />
+  <link rel="stylesheet" href="../../assets/css/components.css" />
+  <link rel="stylesheet" href="../../assets/css/responsive.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <div class="sidebar-overlay" data-sidebar-overlay></div>
+    <aside class="sidebar" data-sidebar>
+      <div class="flex items-center justify-between p-md" style="border-bottom:1px solid var(--border)">
+        <div class="flex items-center gap-md">
+          <img class="brand-logo" data-brand-logo alt="ROYALBRIDGE INT'L SCHOOL logo" />
+          <div><div class="font-semibold" data-brand-name>ROYALBRIDGE INT'L SCHOOL</div><div class="text-muted text-xs">Student</div></div>
+        </div>
+        <button class="btn btn-ghost btn-icon hide-desktop" data-sidebar-close><i class="fas fa-times"></i></button>
+      </div>
+      <nav class="flex-1" data-sidebar-nav></nav>
+      <div class="p-md" style="border-top:1px solid var(--border)"><button class="btn btn-ghost w-full" data-logout><i class="fas fa-sign-out-alt"></i> Logout</button></div>
+    </aside>
+    <div class="main">
+      <header class="topbar">
+        <div class="flex items-center gap-md">
+          <button class="btn btn-ghost btn-icon hide-desktop" data-sidebar-toggle><i class="fas fa-bars"></i></button>
+          <h1 class="card-title">Dashboard</h1>
+        </div>
+        <div class="flex items-center gap-md" data-user-info></div>
+      </header>
+      <main class="content">
+        <section class="card mb-lg">
+          <div class="card-body">
+            <div id="welcome"></div>
+            <a class="btn btn-primary btn-lg mt-md" href="results.html" id="checkResultsBtn">
+              <i class="fas fa-graduation-cap"></i> CHECK RESULTS
+            </a>
+            <p class="text-muted text-sm mt-sm">View your termly results and remarks.</p>
+          </div>
+        </section>
+        <section class="grid grid-3">
+          <div class="card"><div class="card-body"><div class="text-muted text-sm">Class</div><div class="font-semibold" id="statClass">—</div></div></div>
+          <div class="card"><div class="card-body"><div class="text-muted text-sm">Admission No.</div><div class="font-semibold" id="statAdmission">—</div></div></div>
+          <div class="card"><div class="card-body"><div class="text-muted text-sm">Fees Outstanding</div><div class="font-semibold" id="statOutstanding">—</div></div></div>
+        </section>
+      </main>
+    </div>
+    <nav class="bottom-nav" data-bottom-nav></nav>
+  </div>
+  <script type="module">
+    import { initApp } from "../../assets/js/app.js";
+    import { requireRole, getCurrentUser } from "../../assets/js/auth.js";
+    import { ROLES } from "../../assets/js/config.js";
+    import { classService, feeService } from "../../assets/js/services.js";
+    import { formatCurrency } from "../../assets/js/utils.js";
+    import { whenDataReady } from "../../assets/js/data/store.js";
+
+    initApp();
+    requireRole(ROLES.STUDENT);
+
+    function render() {
+      const u = getCurrentUser();
+      const s = u && u.student;
+      if (!s) { document.getElementById("welcome").innerHTML = "<p class='text-muted'>No student record linked to this account.</p>"; return; }
+      document.getElementById("welcome").innerHTML = `<div class="font-semibold" style="font-size:1.25rem">Welcome, ${s.firstName} ${s.lastName}</div>`;
+      const cls = classService.getById(s.classId);
+      document.getElementById("statClass").textContent = cls ? `${cls.name}${cls.arm ? " " + cls.arm : ""}` : (s.classId || "—");
+      document.getElementById("statAdmission").textContent = s.admissionNumber || "—";
+      const bal = feeService.getStudentBalance(s.studentId);
+      document.getElementById("statOutstanding").textContent = formatCurrency(bal.outstanding);
+    }
+
+    document.addEventListener("DOMContentLoaded", () => { render(); whenDataReady().then(render); });
+  </script>
+</body>
+</html>

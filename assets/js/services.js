@@ -180,6 +180,11 @@ export const resultService = {
   getByStudent(studentId) {
     return store.filter("results", (x) => x.studentId === studentId);
   },
+  getPublishedForStudent(studentId) {
+    return store
+      .filter("results", (x) => x.studentId === studentId && /published|approved/i.test(x.status || ""))
+      .sort((a, b) => new Date(a.submittedAt || 0) - new Date(b.submittedAt || 0));
+  },
   submit({ classId, subjectId, termName, records }) {
     const r = {
       resultId: uid(),

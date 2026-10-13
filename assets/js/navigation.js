@@ -53,6 +53,16 @@ function getNavItems(role) {
       { href: "announcements.html", icon: "fa-bullhorn", label: "Announcements" }
     ];
   }
+  if (role === "student") {
+    return [
+      { href: "dashboard.html", icon: "fa-tachometer-alt", label: "Dashboard" },
+      { href: "results.html", icon: "fa-graduation-cap", label: "Check Results" },
+      { href: "attendance.html", icon: "fa-calendar-check", label: "Attendance" },
+      { href: "fees.html", icon: "fa-money-bill-wave", label: "Fees" },
+      { href: "receipts.html", icon: "fa-file-invoice", label: "Receipts" },
+      { href: "announcements.html", icon: "fa-bullhorn", label: "Announcements" }
+    ];
+  }
   if (role === "parent") {
     return [
       { href: "dashboard.html", icon: "fa-tachometer-alt", label: "Dashboard" },
@@ -129,7 +139,13 @@ function initUserMenu() {
   const logoutBtns = queryAll("[data-logout]");
   const user = getCurrentUser();
   if (userInfo && user) {
-    const name = user.staff ? `${user.staff.firstName} ${user.staff.lastName}` : user.parent ? `${user.parent.firstName} ${user.parent.lastName}` : user.email;
+    const name = user.staff
+      ? `${user.staff.firstName} ${user.staff.lastName}`
+      : user.student
+        ? `${user.student.firstName} ${user.student.lastName}`
+        : user.parent
+          ? `${user.parent.firstName} ${user.parent.lastName}`
+          : user.email;
     userInfo.innerHTML = `<div class="user-name">${name}</div><div class="user-role">${user.role}</div>`;
   }
   logoutBtns.forEach((btn) => on(btn, "click", (e) => { e.preventDefault(); logout(); }));

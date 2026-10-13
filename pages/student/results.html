@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Check Results — ROYALBRIDGE INT'L SCHOOL</title>
+  <link rel="stylesheet" href="../../assets/css/style.css" />
+  <link rel="stylesheet" href="../../assets/css/components.css" />
+  <link rel="stylesheet" href="../../assets/css/responsive.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <div class="sidebar-overlay" data-sidebar-overlay></div>
+    <aside class="sidebar" data-sidebar>
+      <div class="flex items-center justify-between p-md" style="border-bottom:1px solid var(--border)">
+        <div class="flex items-center gap-md">
+          <img class="brand-logo" data-brand-logo alt="ROYALBRIDGE INT'L SCHOOL logo" />
+          <div><div class="font-semibold" data-brand-name>ROYALBRIDGE INT'L SCHOOL</div><div class="text-muted text-xs">Student</div></div>
+        </div>
+        <button class="btn btn-ghost btn-icon hide-desktop" data-sidebar-close><i class="fas fa-times"></i></button>
+      </div>
+      <nav class="flex-1" data-sidebar-nav></nav>
+      <div class="p-md" style="border-top:1px solid var(--border)"><button class="btn btn-ghost w-full" data-logout><i class="fas fa-sign-out-alt"></i> Logout</button></div>
+    </aside>
+    <div class="main">
+      <header class="topbar">
+        <div class="flex items-center gap-md">
+          <button class="btn btn-ghost btn-icon hide-desktop" data-sidebar-toggle><i class="fas fa-bars"></i></button>
+          <h1 class="card-title">Check Results</h1>
+        </div>
+        <div class="flex items-center gap-md" data-user-info></div>
+      </header>
+      <main class="content">
+        <section class="card mb-lg">
+          <div class="card-header">
+            <div class="flex items-center gap-md flex-wrap">
+              <select class="form-select" style="max-width:200px" id="termSel">
+                <option value="First Term">First Term</option>
+                <option value="Second Term">Second Term</option>
+                <option value="Third Term">Third Term</option>
+              </select>
+            </div>
+          </div>
+          <div class="card-body">
+            <div id="summary" class="text-muted">Loading…</div>
+          </div>
+          <div class="table-container">
+            <table class="table">
+              <thead><tr><th>Subject</th><th>C/A 20</th><th>Mid 20</th><th>Exam 60</th><th>Total 100</th><th>Remark</th></tr></thead>
+              <tbody id="tbody"></tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+    </div>
+    <nav class="bottom-nav" data-bottom-nav></nav>
+  </div>
+  <script type="module">
+    import { initApp } from "../../assets/js/app.js";
+    import { requireRole, getCurrentUser } from "../../assets/js/auth.js";
+    import { ROLES } from "../../assets/js/config.js";
+    import { subjectService, resultService } from "../../assets/js/services.js";
+    import { query } from "../../assets/js/utils.js";
+    import { whenDataReady, list } from "../../assets/js/data/store.js";
+
+    initApp();
+    requireRole(ROLES.STUDENT);
+
+    function nameMap() {
+      const map = {};
+      const ss = list("schoolSettings")[0];
+      const rc = ss && ss.reportConfig ? ss.reportConfig : {};
+      const sets = [...(rc.nurserySubjects || []), ...(rc.basicTermlySubjects || []), ...(rc.basicCumulativeSubjects || [])];
+      sets.forEach((s) => { if (s && s.code) map[s.code] = s.name; });
+      subjectService.getAll().forEach((s) => { if (s.code) map[s.code] = s.name; });
+      return map;
+    }
+
+    function render() {
+      const u = getCurrentUser();
+      const s = u && u.student;
+      const tbody = query("#tbody");
+      const summary = query("#summary");
+      if (!s) { tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted">No student record linked.</td></tr>`; summary.textContent = ""; return; }
+
+      const term = query("#termSel").value;
+      const results = resultService.getPublishedForStudent(s.studentId).filter((r) => r.termName === term);
+      if (!results.length) {
+        summary.textContent = `${s.firstName} ${s.lastName} • ${term}`;
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted">No published results for ${term} yet.</td></tr>`;
+        return;
+      }
+      const r = results[0];
+      const names = nameMap();
+      const entries = Array.isArray(r.subjects)
+        ? r.subjects.map((v, i) => ({ code: v.code || String(i), ...v }))
+        : Object.entries(r.subjects || {}).map(([code, v]) => ({ code, ...v }));
+
+      summary.innerHTML = `<strong>${s.firstName} ${s.lastName}</strong> • ${term} • Average: <strong>${r.average ?? "—"}</strong>${r.classHighestAverage ? ` • Class High: ${r.classHighestAverage}` : ""}${r.classLowestAverage ? ` • Class Low: ${r.classLowestAverage}` : ""}`;
+
+      tbody.innerHTML = entries.map((e) => `
+        <tr>
+          <td>${names[e.code] || e.code}</td>
+          <td>${e.ca ?? "—"}</td>
+          <td>${e.mid ?? "—"}</td>
+          <td>${e.exam ?? "—"}</td>
+          <td><strong>${e.total ?? "—"}</strong></td>
+          <td>${e.remark || e.grade || "—"}</td>
+        </tr>
+      `).join("");
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      render();
+      query("#termSel").addEventListener("change", render);
+      whenDataReady().then(render);
+    });
+  </script>
+</body>
+</html>
