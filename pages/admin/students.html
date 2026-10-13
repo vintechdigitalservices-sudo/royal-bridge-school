@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#0F7B63" />
+  <title>Students — ROYALBRIDGE INT'L SCHOOL</title>
+  <link rel="stylesheet" href="../../assets/css/style.css" />
+  <link rel="stylesheet" href="../../assets/css/components.css" />
+  <link rel="stylesheet" href="../../assets/css/responsive.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+</head>
+
+<body>
+  <div class="app-shell">
+    <div class="sidebar-overlay" data-sidebar-overlay></div>
+    <aside class="sidebar" data-sidebar>
+      <div class="flex items-center justify-between p-md" style="border-bottom: 1px solid var(--border)">
+        <div class="flex items-center gap-md">
+          <img class="brand-logo" data-brand-logo alt="ROYALBRIDGE INT'L SCHOOL logo" />
+          <div>
+            <div class="font-semibold" data-brand-name>ROYALBRIDGE INT'L SCHOOL</div>
+            <div class="text-muted text-xs">Admin</div>
+          </div>
+        </div>
+        <button class="btn btn-ghost btn-icon hide-desktop" data-sidebar-close>
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <nav class="flex-1" data-sidebar-nav></nav>
+      <div class="p-md" style="border-top: 1px solid var(--border)">
+        <button class="btn btn-ghost w-full" data-logout>
+          <i class="fas fa-sign-out-alt"></i>
+          Logout
+        </button>
+      </div>
+    </aside>
+    <div class="main">
+      <header class="topbar">
+        <div class="flex items-center gap-md">
+          <button class="btn btn-ghost btn-icon hide-desktop" data-sidebar-toggle>
+            <i class="fas fa-bars"></i>
+          </button>
+          <h1 class="card-title">Students</h1>
+        </div>
+        <div class="flex items-center gap-md" data-user-info></div>
+      </header>
+      <main class="content">
+        <section class="card mb-lg">
+          <div class="card-header">
+            <div class="flex items-center gap-md w-full flex-wrap">
+              <input class="form-input" style="max-width: 280px" id="studentSearch" placeholder="Search by name or admission number" />
+              <select class="form-select" style="max-width: 220px" id="classFilter">
+                <option value="">All Classes</option>
+              </select>
+              <button class="btn btn-secondary" id="clearFilters">Clear Filters</button>
+            </div>
+            <button class="btn btn-primary" data-modal-open="addStudentModal"><i class="fas fa-plus"></i> Add Student</button>
+          </div>
+          <div class="table-container hide-mobile">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Admission No.</th>
+                  <th>Name</th>
+                  <th>Gender</th>
+                  <th>Class</th>
+                  <th>Arm</th>
+                  <th>Parent</th>
+                  <th>Phone</th>
+                </tr>
+              </thead>
+              <tbody id="studentsTable"></tbody>
+            </table>
+          </div>
+          <div class="list-mobile hide-desktop" id="studentsMobile"></div>
+        </section>
+      </main>
+    </div>
+    <nav class="bottom-nav" data-bottom-nav></nav>
+  </div>
+
+  <div class="modal" id="addStudentModal">
+    <div class="modal-overlay" data-modal-close></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="card-title">Add Student</h2>
+        <button class="btn btn-ghost btn-icon" data-modal-close><i class="fas fa-times"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="grid" style="grid-template-columns: 1fr 1fr; gap: var(--spacing-md)">
+          <div class="form-group">
+            <label class="form-label">First Name</label>
+            <input class="form-input" id="firstName" required />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Last Name</label>
+            <input class="form-input" id="lastName" required />
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Admission Number</label>
+          <input class="form-input" id="admissionNumber" required />
+        </div>
+        <div class="grid" style="grid-template-columns: 1fr 1fr; gap: var(--spacing-md)">
+          <div class="form-group">
+            <label class="form-label">Class</label>
+            <select class="form-select" id="classId" required></select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Gender</label>
+            <select class="form-select" id="gender" required>
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Parent Email</label>
+          <input class="form-input" id="parentEmail" type="email" required />
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-modal-close>Cancel</button>
+        <button class="btn btn-primary" id="saveStudent">Save Student</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initApp } from "../../assets/js/app.js";
+    import { requireRole } from "../../assets/js/auth.js";
+    import { ROLES } from "../../assets/js/config.js";
+    import { studentService, classService } from "../../assets/js/services.js";
+    import { query } from "../../assets/js/utils.js";
+    import { toast } from "../../assets/js/notifications.js";
+
+    initApp();
+    requireRole(ROLES.ADMIN);
+
+    function render() {
+      const students = studentService.getAll();
+      const classes = classService.getAll();
+      const classFilter = query("#classFilter");
+      classFilter.innerHTML = '<option value="">All Classes</option>' + classes.map(c => `<option value="${c.classId}">${c.name}${c.arm? " "+c.arm : ""}</option>`).join("");
+
+      const search = query("#studentSearch").value.toLowerCase();
+      const cls = classFilter.value;
+      const filtered = students.filter(s => {
+        const matchSearch = !search || s.firstName.toLowerCase().includes(search) || s.lastName.toLowerCase().includes(search) || s.admissionNumber.toLowerCase().includes(search);
+        const matchCls = !cls || s.classId === cls;
+        return matchSearch && matchCls;
+      });
+
+      query("#studentsTable").innerHTML = filtered.map(s => `
+        <tr>
+          <td>${s.admissionNumber}</td>
+          <td>${s.firstName} ${s.lastName}</td>
+          <td>${s.gender}</td>
+          <td>${s.className}</td>
+          <td>${s.classArm || "-"}</td>
+          <td>${s.parentName}</td>
+          <td>${s.parentPhone}</td>
+        </tr>
+      `).join("") || `<tr><td colspan="7" class="text-center text-muted">No students found</td></tr>`;
+
+      query("#studentsMobile").innerHTML = filtered.map(s => `
+        <div class="mobile-list-item">
+          <div class="mobile-list-header">
+            <div class="mobile-list-title">${s.firstName} ${s.lastName}</div>
+            <span class="badge">${s.admissionNumber}</span>
+          </div>
+          <div class="mobile-list-meta">Class: ${s.className}${s.classArm? " "+s.classArm : ""} • Gender: ${s.gender}</div>
+          <div class="mobile-list-meta">Parent: ${s.parentName} • ${s.parentPhone}</div>
+        </div>
+      `).join("") || `<div class="text-center text-muted">No students found</div>`;
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      render();
+      query("#studentSearch").addEventListener("input", render);
+      query("#classFilter").addEventListener("change", render);
+      query("#clearFilters").addEventListener("click", () => { query("#studentSearch").value=""; query("#classFilter").value=""; render(); });
+
+      const classSel = query("#classId");
+      classSel.innerHTML = classService.getAll().map(c => `<option value="${c.classId}" data-name="${c.name}" data-arm="${c.arm||""}">${c.name}${c.arm? " "+c.arm : ""}</option>`).join("");
+
+      query("#saveStudent").addEventListener("click", () => {
+        const clsOpt = classSel.selectedOptions[0];
+        const s = {
+          firstName: query("#firstName").value,
+          lastName: query("#lastName").value,
+          admissionNumber: query("#admissionNumber").value,
+          classId: classSel.value,
+          className: clsOpt?.getAttribute("data-name") || "",
+          classArm: clsOpt?.getAttribute("data-arm") || null,
+          gender: query("#gender").value,
+          parentEmail: query("#parentEmail").value,
+          parentName: "",
+          parentPhone: "",
+          status: "active"
+        };
+        studentService.create(s);
+        toast("Student added (simulated)", "success");
+        document.querySelector("#addStudentModal").classList.remove("active");
+        render();
+      });
+    });
+  </script>
+</body>
+
+</html>

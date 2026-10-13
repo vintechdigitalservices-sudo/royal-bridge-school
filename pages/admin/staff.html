@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="theme-color" content="#0F7B63" />
+  <title>Staff — ROYALBRIDGE INT'L SCHOOL</title>
+  <link rel="stylesheet" href="../../assets/css/style.css" />
+  <link rel="stylesheet" href="../../assets/css/components.css" />
+  <link rel="stylesheet" href="../../assets/css/responsive.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+</head>
+
+<body>
+  <div class="app-shell">
+    <div class="sidebar-overlay" data-sidebar-overlay></div>
+    <aside class="sidebar" data-sidebar>
+      <div class="flex items-center justify-between p-md" style="border-bottom: 1px solid var(--border)">
+        <div class="flex items-center gap-md">
+          <img class="brand-logo" data-brand-logo alt="ROYALBRIDGE INT'L SCHOOL logo" />
+          <div>
+            <div class="font-semibold" data-brand-name>ROYALBRIDGE INT'L SCHOOL</div>
+            <div class="text-muted text-xs">Admin</div>
+          </div>
+        </div>
+        <button class="btn btn-ghost btn-icon hide-desktop" data-sidebar-close>
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+      <nav class="flex-1" data-sidebar-nav></nav>
+      <div class="p-md" style="border-top: 1px solid var(--border)">
+        <button class="btn btn-ghost w-full" data-logout>
+          <i class="fas fa-sign-out-alt"></i>
+          Logout
+        </button>
+      </div>
+    </aside>
+    <div class="main">
+      <header class="topbar">
+        <div class="flex items-center gap-md">
+          <button class="btn btn-ghost btn-icon hide-desktop" data-sidebar-toggle>
+            <i class="fas fa-bars"></i>
+          </button>
+          <h1 class="card-title">Staff</h1>
+        </div>
+        <div class="flex items-center gap-md" data-user-info></div>
+      </header>
+      <main class="content">
+        <div class="card">
+          <div class="card-header">
+            <input class="form-input" style="max-width: 280px" id="search" placeholder="Search staff" />
+            <button class="btn btn-primary" data-modal-open="addStaffModal"><i class="fas fa-plus"></i> Add Staff</button>
+          </div>
+          <div class="table-container">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Role</th>
+                  <th>Email</th>
+                  <th>Phone</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </main>
+    </div>
+    <nav class="bottom-nav" data-bottom-nav></nav>
+  </div>
+
+  <div class="modal" id="addStaffModal">
+    <div class="modal-overlay" data-modal-close></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="card-title">Add Staff</h2>
+        <button class="btn btn-ghost btn-icon" data-modal-close><i class="fas fa-times"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="grid" style="grid-template-columns: 1fr 1fr; gap: var(--spacing-md)">
+          <div class="form-group"><label class="form-label">First Name</label><input class="form-input" id="firstName" required /></div>
+          <div class="form-group"><label class="form-label">Last Name</label><input class="form-input" id="lastName" required /></div>
+        </div>
+        <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="email" type="email" required /></div>
+        <div class="form-group"><label class="form-label">Phone</label><input class="form-input" id="phone" required /></div>
+        <div class="form-group">
+          <label class="form-label">Role</label>
+          <select class="form-select" id="role">
+            <option value="teacher">Teacher</option>
+            <option value="bursar">Bursar</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-modal-close>Cancel</button>
+        <button class="btn btn-primary" id="save">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initApp } from "../../assets/js/app.js";
+    import { requireRole } from "../../assets/js/auth.js";
+    import { ROLES } from "../../assets/js/config.js";
+    import { staffService } from "../../assets/js/services.js";
+    import { query } from "../../assets/js/utils.js";
+    import { toast } from "../../assets/js/notifications.js";
+
+    initApp(); requireRole(ROLES.ADMIN);
+    function render() {
+      const list = staffService.getAll();
+      const search = query("#search").value.toLowerCase();
+      const filtered = list.filter(s => !search || `${s.firstName} ${s.lastName}`.toLowerCase().includes(search) || s.email.toLowerCase().includes(search));
+      query("#tbody").innerHTML = filtered.map(s => `
+        <tr>
+          <td>${s.firstName} ${s.lastName}</td>
+          <td><span class="badge text-capitalize">${s.role}</span></td>
+          <td>${s.email}</td>
+          <td>${s.phone}</td>
+          <td>${s.active ? '<span class="badge badge-success">Active</span>' : '<span class="badge badge-danger">Inactive</span>'}</td>
+        </tr>
+      `).join("");
+    }
+    document.addEventListener("DOMContentLoaded", () => {
+      render(); query("#search").addEventListener("input", render);
+      query("#save").addEventListener("click", () => {
+        staffService.create({
+          firstName: query("#firstName").value,
+          lastName: query("#lastName").value,
+          email: query("#email").value,
+          phone: query("#phone").value,
+          role: query("#role").value,
+          active: true
+        });
+        toast("Staff added", "success");
+        document.getElementById("addStaffModal").classList.remove("active");
+        render();
+      });
+    });
+  </script>
+</body>
+
+</html>

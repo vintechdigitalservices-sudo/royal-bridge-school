@@ -1,0 +1,35 @@
+{
+  "name": "ROYALBRIDGE INT'L SCHOOL",
+  "short_name": "ROYALBRIDGE",
+  "description": "ROYALBRIDGE INT'L SCHOOL portal — Inspiring Excellence. Manage students, staff, fees, results and communication.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "id": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#F5F7F9",
+  "theme_color": "#0F7B63",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": ["education", "productivity"],
+  "icons": [
+    {
+      "src": "assets/images/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/images/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "assets/images/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

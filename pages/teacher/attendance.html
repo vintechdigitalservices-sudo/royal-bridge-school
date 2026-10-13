@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Attendance — ROYALBRIDGE INT'L SCHOOL</title>
+  <link rel="stylesheet" href="../../assets/css/style.css" />
+  <link rel="stylesheet" href="../../assets/css/components.css" />
+  <link rel="stylesheet" href="../../assets/css/responsive.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <div class="sidebar-overlay" data-sidebar-overlay></div>
+    <aside class="sidebar" data-sidebar>
+      <div class="flex items-center justify-between p-md" style="border-bottom:1px solid var(--border)">
+        <div class="flex items-center gap-md">
+          <img class="brand-logo" data-brand-logo alt="ROYALBRIDGE INT'L SCHOOL logo" />
+          <div><div class="font-semibold" data-brand-name>ROYALBRIDGE INT'L SCHOOL</div><div class="text-muted text-xs">Teacher</div></div>
+        </div>
+        <button class="btn btn-ghost btn-icon hide-desktop" data-sidebar-close><i class="fas fa-times"></i></button>
+      </div>
+      <nav class="flex-1" data-sidebar-nav></nav>
+      <div class="p-md" style="border-top:1px solid var(--border)"><button class="btn btn-ghost w-full" data-logout><i class="fas fa-sign-out-alt"></i> Logout</button></div>
+    </aside>
+    <div class="main">
+      <header class="topbar">
+        <div class="flex items-center gap-md">
+          <button class="btn btn-ghost btn-icon hide-desktop" data-sidebar-toggle><i class="fas fa-bars"></i></button>
+          <h1 class="card-title">Attendance</h1>
+        </div>
+        <div class="flex items-center gap-md" data-user-info></div>
+      </header>
+      <main class="content">
+        <div class="card mb-lg">
+          <div class="card-header">
+            <div class="flex items-center gap-md">
+              <select class="form-select" style="max-width:220px" id="classSel"><option value="">Select Class</option></select>
+              <input class="form-input" type="date" id="attDate" />
+            </div>
+            <button class="btn btn-primary" id="saveAtt">Save Attendance</button>
+          </div>
+          <div class="table-container">
+            <table class="table">
+              <thead><tr><th>Name</th><th>Present</th><th>Absent</th><th>Late</th></tr></thead>
+              <tbody id="tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </main>
+    </div>
+    <nav class="bottom-nav" data-bottom-nav></nav>
+  </div>
+  <script type="module">
+    import {initApp} from "../../assets/js/app.js";
+    import {requireRole} from "../../assets/js/auth.js";
+    import {ROLES, ATTENDANCE_STATUS} from "../../assets/js/config.js";
+    import {classService, studentService, attendanceService} from "../../assets/js/services.js";
+    import {query} from "../../assets/js/utils.js";
+    import {toast} from "../../assets/js/notifications.js";
+    initApp(); requireRole(ROLES.TEACHER);
+    let students=[];
+    function render(){
+      const cls=query("#classSel").value;
+      const list=students.filter(s=>!cls||s.classId===cls);
+      query("#tbody").innerHTML=list.map(s=>`<tr><td>${s.firstName} ${s.lastName}</td><td><input type="radio" name="att_${s.studentId}" value="present" checked /></td><td><input type="radio" name="att_${s.studentId}" value="absent" /></td><td><input type="radio" name="att_${s.studentId}" value="late" /></td></tr>`).join("");
+    }
+    document.addEventListener("DOMContentLoaded",()=>{
+      const classes=classService.getAll();
+      query("#classSel").innerHTML='<option value="">Select Class</option>'+classes.map(c=>`<option value="${c.classId}">${c.name}${c.arm?" "+c.arm:""}</option>`).join("");
+      students=studentService.getAll();
+      render();
+      query("#classSel").addEventListener("change",render);
+      query("#saveAtt").addEventListener("click",()=>{
+        const cls=query("#classSel").value; const date=query("#attDate").value||new Date().toISOString().slice(0,10);
+        if(!cls){toast("Select a class","warning"); return;}
+        const records=students.filter(s=>s.classId===cls).map(s=>{
+          const val=document.querySelector(`input[name="att_${s.studentId}"]:checked`)?.value||"present";
+          return {studentId:s.studentId, status:val};
+        });
+        attendanceService.record({classId:cls,date,records});
+        toast("Attendance saved","success");
+      });
+    });
+  </script>
+</body>
+</html>

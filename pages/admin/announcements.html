@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Announcements — ROYALBRIDGE INT'L SCHOOL</title>
+  <link rel="stylesheet" href="../../assets/css/style.css" />
+  <link rel="stylesheet" href="../../assets/css/components.css" />
+  <link rel="stylesheet" href="../../assets/css/responsive.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <div class="sidebar-overlay" data-sidebar-overlay></div>
+    <aside class="sidebar" data-sidebar>
+      <div class="flex items-center justify-between p-md" style="border-bottom:1px solid var(--border)">
+        <div class="flex items-center gap-md">
+          <img class="brand-logo" data-brand-logo alt="ROYALBRIDGE INT'L SCHOOL logo" />
+          <div><div class="font-semibold" data-brand-name>ROYALBRIDGE INT'L SCHOOL</div><div class="text-muted text-xs">Admin</div></div>
+        </div>
+        <button class="btn btn-ghost btn-icon hide-desktop" data-sidebar-close><i class="fas fa-times"></i></button>
+      </div>
+      <nav class="flex-1" data-sidebar-nav></nav>
+      <div class="p-md" style="border-top:1px solid var(--border)"><button class="btn btn-ghost w-full" data-logout><i class="fas fa-sign-out-alt"></i> Logout</button></div>
+    </aside>
+    <div class="main">
+      <header class="topbar">
+        <div class="flex items-center gap-md">
+          <button class="btn btn-ghost btn-icon hide-desktop" data-sidebar-toggle><i class="fas fa-bars"></i></button>
+          <h1 class="card-title">Announcements</h1>
+        </div>
+        <div class="flex items-center gap-md" data-user-info></div>
+      </header>
+      <main class="content">
+        <div class="card mb-lg">
+          <div class="card-header"><h2 class="card-title">Create Announcement</h2></div>
+          <div class="card-body">
+            <div class="form-group"><label class="form-label">Title</label><input class="form-input" id="title" /></div>
+            <div class="form-group"><label class="form-label">Message</label><textarea class="form-textarea" id="msg"></textarea></div>
+            <div class="form-group"><label class="form-label">Audience</label><select class="form-select" id="aud"><option value="everyone">Everyone</option><option value="teachers">Teachers</option><option value="parents">Parents</option><option value="staff">Staff</option></select></div>
+            <button class="btn btn-primary" id="create">Publish</button>
+          </div>
+        </div>
+        <div class="card"><div class="card-body" id="list"></div></div>
+      </main>
+    </div>
+    <nav class="bottom-nav" data-bottom-nav></nav>
+  </div>
+  <script type="module">
+    import {initApp} from "../../assets/js/app.js";
+    import {requireRole} from "../../assets/js/auth.js";
+    import {ROLES} from "../../assets/js/config.js";
+    import {announcementService, userService, notificationService} from "../../assets/js/services.js";
+    import {formatDate, query} from "../../assets/js/utils.js";
+    import {toast} from "../../assets/js/notifications.js";
+    initApp(); requireRole(ROLES.ADMIN);
+    function render(){const a=announcementService.getAll(); query("#list").innerHTML=a.map(x=>`<div class="mb-md"><div class="font-semibold">${x.title}</div><div class="text-muted text-sm">${formatDate(x.date)} • ${x.audience}</div><p>${x.message}</p></div>`).join("")||"<p class='text-muted'>No announcements</p>";}
+    function audienceUsers(aud){
+      if(aud==="teachers") return userService.getByRole(ROLES.TEACHER);
+      if(aud==="parents") return userService.getByRole(ROLES.PARENT);
+      if(aud==="staff") return [...userService.getByRole(ROLES.ADMIN),...userService.getByRole(ROLES.BURSAR),...userService.getByRole(ROLES.TEACHER)];
+      return userService.getAll();
+    }
+    document.addEventListener("DOMContentLoaded",()=>{render(); query("#create").addEventListener("click",()=>{
+      const title=query("#title").value, message=query("#msg").value, audience=query("#aud").value;
+      if(!title){toast("Enter a title","warning");return;}
+      announcementService.create({title,message,audience});
+      audienceUsers(audience).forEach(u=>notificationService.create({
+        userId:u.userId, title:"New Announcement", message:title, type:"announcement",
+        link:`pages/${u.role}/announcements.html`
+      }));
+      toast("Announcement published","success"); render();
+    });});
+  </script>
+</body>
+</html>

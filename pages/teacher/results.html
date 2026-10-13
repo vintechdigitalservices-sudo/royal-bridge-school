@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Results — ROYALBRIDGE INT'L SCHOOL</title>
+  <link rel="stylesheet" href="../../assets/css/style.css" />
+  <link rel="stylesheet" href="../../assets/css/components.css" />
+  <link rel="stylesheet" href="../../assets/css/responsive.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <div class="sidebar-overlay" data-sidebar-overlay></div>
+    <aside class="sidebar" data-sidebar>
+      <div class="flex items-center justify-between p-md" style="border-bottom:1px solid var(--border)">
+        <div class="flex items-center gap-md">
+          <img class="brand-logo" data-brand-logo alt="ROYALBRIDGE INT'L SCHOOL logo" />
+          <div><div class="font-semibold" data-brand-name>ROYALBRIDGE INT'L SCHOOL</div><div class="text-muted text-xs">Teacher</div></div>
+        </div>
+        <button class="btn btn-ghost btn-icon hide-desktop" data-sidebar-close><i class="fas fa-times"></i></button>
+      </div>
+      <nav class="flex-1" data-sidebar-nav></nav>
+      <div class="p-md" style="border-top:1px solid var(--border)"><button class="btn btn-ghost w-full" data-logout><i class="fas fa-sign-out-alt"></i> Logout</button></div>
+    </aside>
+    <div class="main">
+      <header class="topbar">
+        <div class="flex items-center gap-md">
+          <button class="btn btn-ghost btn-icon hide-desktop" data-sidebar-toggle><i class="fas fa-bars"></i></button>
+          <h1 class="card-title">Results</h1>
+        </div>
+        <div class="flex items-center gap-md" data-user-info></div>
+      </header>
+      <main class="content">
+        <div class="card mb-lg">
+          <div class="card-header">
+            <div class="flex items-center gap-md flex-wrap">
+              <select class="form-select" style="max-width:220px" id="classSel"><option value="">Class</option></select>
+              <select class="form-select" style="max-width:220px" id="subjectSel"><option value="">Subject</option></select>
+              <select class="form-select" style="max-width:220px" id="termSel"><option value="First Term">First Term</option><option value="Second Term">Second Term</option><option value="Third Term">Third Term</option></select>
+            </div>
+            <button class="btn btn-primary" id="submitResults">Submit Results</button>
+          </div>
+          <div class="table-container">
+            <table class="table">
+              <thead><tr><th>Name</th><th>CA (40)</th><th>Exam (60)</th><th>Total</th><th>Grade</th></tr></thead>
+              <tbody id="tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </main>
+    </div>
+    <nav class="bottom-nav" data-bottom-nav></nav>
+  </div>
+  <script type="module">
+    import {initApp} from "../../assets/js/app.js";
+    import {requireRole} from "../../assets/js/auth.js";
+    import {ROLES} from "../../assets/js/config.js";
+    import {classService, subjectService, studentService, resultService, userService, notificationService} from "../../assets/js/services.js";
+    import {query} from "../../assets/js/utils.js";
+    import {getCurrentUser} from "../../assets/js/auth.js";
+    import {toast} from "../../assets/js/notifications.js";
+    initApp(); requireRole(ROLES.TEACHER);
+    let students=[];
+    function grade(t){ if(t>=90)return "A"; if(t>=80)return "B"; if(t>=70)return "C"; if(t>=60)return "D"; if(t>=50)return "E"; return "F"; }
+    function render(){
+      const cls=query("#classSel").value;
+      const list=students.filter(s=>!cls||s.classId===cls);
+      query("#tbody").innerHTML=list.map(s=>`<tr>
+        <td>${s.firstName} ${s.lastName}</td>
+        <td><input class="form-input" style="width:80px" type="number" min="0" max="40" id="ca_${s.studentId}" value="0" /></td>
+        <td><input class="form-input" style="width:80px" type="number" min="0" max="60" id="ex_${s.studentId}" value="0" /></td>
+        <td id="tot_${s.studentId}">0</td>
+        <td id="gr_${s.studentId}">F</td>
+      </tr>`).join("");
+      list.forEach(s=>{
+        query(`#ca_${s.studentId}`).addEventListener("input",upd); query(`#ex_${s.studentId}`).addEventListener("input",upd);
+      });
+      function upd(){ list.forEach(s=>{ const ca=Number(query(`#ca_${s.studentId}`).value)||0; const ex=Number(query(`#ex_${s.studentId}`).value)||0; const t=Math.min(ca+ex,100); query(`#tot_${s.studentId}`).textContent=t; query(`#gr_${s.studentId}`).textContent=grade(t); }); }
+      upd();
+    }
+    document.addEventListener("DOMContentLoaded",()=>{
+      query("#classSel").innerHTML='<option value="">Class</option>'+classService.getAll().map(c=>`<option value="${c.classId}">${c.name}${c.arm?" "+c.arm:""}</option>`).join("");
+      query("#subjectSel").innerHTML='<option value="">Subject</option>'+subjectService.getAll().map(s=>`<option value="${s.subjectId}">${s.name}</option>`).join("");
+      students=studentService.getAll();
+      render();
+      query("#classSel").addEventListener("change",render);
+      query("#submitResults").addEventListener("click",()=>{
+        const cls=query("#classSel").value, subj=query("#subjectSel").value, term=query("#termSel").value;
+        if(!cls||!subj){toast("Select class and subject","warning"); return;}
+        const records=students.filter(s=>s.classId===cls).map(s=>{
+          const ca=Number(query(`#ca_${s.studentId}`).value)||0, ex=Number(query(`#ex_${s.studentId}`).value)||0, t=ca+ex;
+          return {studentId:s.studentId, ca, exam:ex, total:t, grade:grade(t), remark:""};
+        });
+        resultService.submit({classId:cls,subjectId:subj,termName:term,records});
+        const className=classService.getById?classService.getById(cls)?.name:cls;
+        const subjectName=subjectService.getById?subjectService.getById(subj)?.name:subj;
+        const me=getCurrentUser();
+        const meName=me&&me.staff?`${me.staff.firstName} ${me.staff.lastName}`:(me?me.email:"A teacher");
+        notificationService.createForUsers(userService.getByRole(ROLES.ADMIN).map(u=>u.userId),{
+          title:"Results Awaiting Approval",
+          message:`${meName} submitted ${subjectName||"results"} for ${className||"a class"} (${term}).`,
+          type:"result", link:"pages/admin/results.html"
+        });
+        toast("Results submitted (pending approval)","success");
+      });
+    });
+  </script>
+</body>
+</html>

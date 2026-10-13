@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Results — ROYALBRIDGE INT'L SCHOOL</title>
+  <link rel="stylesheet" href="../../assets/css/style.css" />
+  <link rel="stylesheet" href="../../assets/css/components.css" />
+  <link rel="stylesheet" href="../../assets/css/responsive.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <div class="sidebar-overlay" data-sidebar-overlay></div>
+    <aside class="sidebar" data-sidebar>
+      <div class="flex items-center justify-between p-md" style="border-bottom:1px solid var(--border)">
+        <div class="flex items-center gap-md">
+          <img class="brand-logo" data-brand-logo alt="ROYALBRIDGE INT'L SCHOOL logo" />
+          <div><div class="font-semibold" data-brand-name>ROYALBRIDGE INT'L SCHOOL</div><div class="text-muted text-xs">Admin</div></div>
+        </div>
+        <button class="btn btn-ghost btn-icon hide-desktop" data-sidebar-close><i class="fas fa-times"></i></button>
+      </div>
+      <nav class="flex-1" data-sidebar-nav></nav>
+      <div class="p-md" style="border-top:1px solid var(--border)"><button class="btn btn-ghost w-full" data-logout><i class="fas fa-sign-out-alt"></i> Logout</button></div>
+    </aside>
+    <div class="main">
+      <header class="topbar">
+        <div class="flex items-center gap-md">
+          <button class="btn btn-ghost btn-icon hide-desktop" data-sidebar-toggle><i class="fas fa-bars"></i></button>
+          <h1 class="card-title">Results</h1>
+        </div>
+        <div class="flex items-center gap-md" data-user-info></div>
+      </header>
+      <main class="content">
+        <div class="card">
+          <div class="card-header"><h2 class="card-title">Submitted Results</h2></div>
+          <div class="table-container"><table class="table"><thead><tr><th>Result ID</th><th>Class</th><th>Term</th><th>Status</th><th>Action</th></tr></thead><tbody id="tbody"></tbody></table></div>
+        </div>
+      </main>
+    </div>
+    <nav class="bottom-nav" data-bottom-nav></nav>
+  </div>
+  <script type="module">
+    import {initApp} from "../../assets/js/app.js";
+    import {requireRole} from "../../assets/js/auth.js";
+    import {ROLES} from "../../assets/js/config.js";
+    import {resultService, classService, userService, notificationService} from "../../assets/js/services.js";
+    import {query} from "../../assets/js/utils.js";
+    import {toast} from "../../assets/js/notifications.js";
+    initApp(); requireRole(ROLES.ADMIN);
+    function notifyParents(r){
+      const studentIds=(r.records||[]).map(x=>x.studentId);
+      const parentIds=[...new Set(studentIds.flatMap(id=>userService.getParentsOfStudent(id).map(u=>u.userId)))];
+      notificationService.createForUsers(parentIds,{title:"Result Published",message:`Results for ${r.termName} have been approved and are now available.`,type:"result",link:"pages/parent/results.html"});
+    }
+    function render(){
+      const results=resultService.getAll(); const classes=classService.getAll().reduce((m,c)=>{m[c.classId]=c.name+(c.arm?" "+c.arm:""); return m;},{});
+      query("#tbody").innerHTML=results.map(r=>`<tr><td>${r.resultId}</td><td>${classes[r.classId]||r.classId}</td><td>${r.termName}</td><td><span class="badge">${r.status}</span></td><td class="flex gap-sm"><button class="btn btn-sm btn-primary" data-approve="${r.resultId}">Approve</button><button class="btn btn-sm btn-secondary" data-reject="${r.resultId}">Reject</button></td></tr>`).join("");
+      document.querySelectorAll("[data-approve]").forEach(b=>b.addEventListener("click",()=>{const r=resultService.approve(b.getAttribute("data-approve")); if(r)notifyParents(r); toast("Result approved","success"); render();}));
+      document.querySelectorAll("[data-reject]").forEach(b=>b.addEventListener("click",()=>{resultService.reject(b.getAttribute("data-reject")); toast("Result rejected","warning"); render();}));
+    }
+    document.addEventListener("DOMContentLoaded",render);
+  </script>
+</body>
+</html>

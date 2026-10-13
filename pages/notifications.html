@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0F7B63" />
+  <title>Notifications — ROYALBRIDGE INT'L SCHOOL</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+  <link rel="stylesheet" href="../assets/css/style.css" />
+  <link rel="stylesheet" href="../assets/css/components.css" />
+  <link rel="stylesheet" href="../assets/css/responsive.css" />
+</head>
+
+<body>
+  <div class="app-shell">
+    <div class="sidebar-overlay" data-sidebar-overlay></div>
+    <aside class="sidebar" data-sidebar>
+      <div class="sidebar-brand">
+        <div class="flex items-center gap-md">
+          <img class="brand-logo" data-brand-logo alt="School logo" />
+          <div>
+            <div class="brand-name" data-brand-name>ROYALBRIDGE INT'L SCHOOL</div>
+            <div class="text-muted text-xs">Portal</div>
+          </div>
+        </div>
+        <button class="btn btn-ghost btn-icon hide-desktop" data-sidebar-close aria-label="Close menu"><i class="fas fa-times"></i></button>
+      </div>
+      <nav class="sidebar-nav" data-sidebar-nav></nav>
+      <div class="sidebar-footer"><button class="btn btn-ghost w-full" data-logout><i class="fas fa-sign-out-alt"></i> Logout</button></div>
+    </aside>
+
+    <div class="main">
+      <header class="topbar">
+        <div class="flex items-center gap-md">
+          <button class="btn btn-ghost btn-icon hide-desktop" data-sidebar-toggle aria-label="Open menu"><i class="fas fa-bars"></i></button>
+          <h1 class="card-title">Notifications</h1>
+        </div>
+        <div class="flex items-center gap-md" data-user-info></div>
+      </header>
+
+      <main class="content">
+        <div class="card mb-lg">
+          <div class="card-header">
+            <div class="flex items-center gap-md flex-wrap">
+              <div class="tabs" role="tablist">
+                <button class="tab active" data-filter="all">All</button>
+                <button class="tab" data-filter="unread">Unread</button>
+                <button class="tab" data-filter="read">Read</button>
+              </div>
+            </div>
+            <button class="btn btn-sm btn-secondary" data-mark-all-page>Mark all as read</button>
+          </div>
+          <div id="notificationList" class="notification-page-list"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-header"><h2 class="card-title">Notification Settings</h2></div>
+          <div class="card-body">
+            <div class="setting-row">
+              <div>
+                <div class="font-semibold">Notification sound</div>
+                <div class="text-muted text-sm">Play a short chime when a new notification arrives.</div>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="soundToggle" checked />
+                <span class="switch-slider"></span>
+              </label>
+            </div>
+            <div class="setting-row">
+              <div>
+                <div class="font-semibold">Browser notifications</div>
+                <div class="text-muted text-sm" id="permStatus">Checking…</div>
+              </div>
+              <button class="btn btn-sm btn-primary" id="enablePush">Enable</button>
+            </div>
+          </div>
+        </div>
+      </main>
+    </div>
+    <nav class="bottom-nav" data-bottom-nav></nav>
+  </div>
+
+  <script type="module">
+    import { initApp } from "../assets/js/app.js";
+    import { requireAuth, getCurrentUser } from "../assets/js/auth.js";
+    import { appPath } from "../assets/js/paths.js";
+    import { notificationService } from "../assets/js/services.js";
+    import { iconForNotificationType } from "../assets/js/config.js";
+    import { isSoundEnabled, setSoundEnabled, refresh as refreshBell } from "../assets/js/notification-center.js";
+
+    initApp();
+    const user = requireAuth();
+
+    function relativeTime(iso) {
+      const diff = Math.max(0, Date.now() - new Date(iso).getTime());
+      const mins = Math.floor(diff / 60000);
+      if (mins < 1) return "Just now";
+      if (mins < 60) return mins + "m ago";
+      const hrs = Math.floor(mins / 60);
+      if (hrs < 24) return hrs + "h ago";
+      return new Date(iso).toLocaleString("en-NG", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+    }
+
+    let filter = "all";
+
+    function render() {
+      if (!user) return;
+      const list = notificationService.getByUser(user.userId).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      const filtered = list.filter((n) => filter === "all" ? true : filter === "unread" ? !n.read : n.read);
+      const el = document.getElementById("notificationList");
+      el.innerHTML = filtered.length ? filtered.map((n) => `
+        <div class="notification-page-item ${n.read ? "" : "unread"}">
+          <span class="notification-item-icon"><i class="fas ${iconForNotificationType(n.type)}"></i></span>
+          <div class="notification-item-body">
+            <div class="notification-item-title">${n.title}</div>
+            <div class="notification-item-message">${n.message}</div>
+            <div class="notification-item-time">${relativeTime(n.createdAt)}${n.read ? "" : " • Unread"}</div>
+          </div>
+          <div class="notification-item-actions">
+            ${n.link ? `<a class="btn btn-sm btn-secondary" href="${appPath(n.link)}" data-open="${n.id}">Open</a>` : ""}
+            ${n.read ? "" : `<button class="btn btn-sm btn-ghost" data-read="${n.id}">Mark read</button>`}
+          </div>
+        </div>`).join("") : `<div class="notification-empty"><i class="fas fa-bell-slash"></i><p>No notifications</p><span class="text-muted text-sm">${filter === "all" ? "You're all caught up." : "Nothing here for this filter."}</span></div>`;
+
+      el.querySelectorAll("[data-read]").forEach((b) => b.addEventListener("click", () => {
+        notificationService.markRead(b.getAttribute("data-read"));
+        refreshBell(); render();
+      }));
+      el.querySelectorAll("[data-open]").forEach((b) => b.addEventListener("click", () => {
+        notificationService.markRead(b.getAttribute("data-open"));
+        refreshBell();
+      }));
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      document.querySelectorAll(".tab[data-filter]").forEach((t) => t.addEventListener("click", () => {
+        document.querySelectorAll(".tab[data-filter]").forEach((x) => x.classList.remove("active"));
+        t.classList.add("active");
+        filter = t.getAttribute("data-filter");
+        render();
+      }));
+
+      document.querySelector("[data-mark-all-page]").addEventListener("click", () => {
+        if (user) notificationService.markAllRead(user.userId);
+        refreshBell(); render();
+      });
+
+      const soundToggle = document.getElementById("soundToggle");
+      soundToggle.checked = isSoundEnabled();
+      soundToggle.addEventListener("change", () => setSoundEnabled(soundToggle.checked));
+
+      const permStatus = document.getElementById("permStatus");
+      const enableBtn = document.getElementById("enablePush");
+      function updatePerm() {
+        if (!("Notification" in window)) { permStatus.textContent = "Not supported on this device."; enableBtn.disabled = true; return; }
+        const p = Notification.permission;
+        permStatus.textContent = p === "granted" ? "Enabled" : p === "denied" ? "Blocked in browser settings" : "Not enabled yet";
+        enableBtn.disabled = p !== "default";
+        enableBtn.textContent = p === "granted" ? "Enabled" : "Enable";
+      }
+      enableBtn.addEventListener("click", async () => {
+        if (!("Notification" in window)) return;
+        await Notification.requestPermission();
+        updatePerm();
+      });
+      updatePerm();
+      render();
+    });
+  </script>
+</body>
+
+</html>
