@@ -320,7 +320,38 @@ async function main() {
 
   if (!DRY && batchCount > 0) await batch.commit();
 
-  console.log("Collection            created  skipped  updated  blocked");
+  // --- Firebase Auth accounts (so the client signs in via Firebase Auth and role
+  //     is resolved from users/{uid}, never chosen on the client) ---
+  const authUsers = [
+    { uid: "u-admin", email: "admin@royalbridge.edu.ng", displayName: "Adebola Okoye" },
+    { uid: "u-bursar", email: "bursar@royalbridge.edu.ng", displayName: "Funmilayo Adekunle" },
+    { uid: "u-teacher1", email: "teacher1@royalbridge.edu.ng", displayName: "Chukwuemeka Eze" },
+    { uid: "u-student1", email: "student1@royalbridge.edu.ng", displayName: "Ada Obi" },
+    { uid: "u-student2", email: "student2@royalbridge.edu.ng", displayName: "Emeka Nwosu" }
+  ];
+  const authCounts = { created: 0, skipped: 0 };
+  console.log("\nFirebase Auth accounts (password: password123)");
+  for (const u of authUsers) {
+    if (DRY) { console.log(`  [dry] would ensure auth user ${u.uid} <${u.email}>`); continue; }
+    try {
+      await admin.auth().getUser(u.uid);
+      authCounts.skipped++;
+    } catch (err) {
+      if (err.code === "auth/user-not-found") {
+        try {
+          await admin.auth().createUser({ uid: u.uid, email: u.email, password: "password123", displayName: u.displayName, emailVerified: true });
+          authCounts.created++;
+        } catch (e2) {
+          problems.push(`auth ${u.uid}: create failed -> ${e2.message}`);
+        }
+      } else {
+        problems.push(`auth ${u.uid}: lookup failed -> ${err.message}`);
+      }
+    }
+  }
+  console.log(`  created=${authCounts.created} skipped=${authCounts.skipped}`);
+
+  console.log("\nCollection            created  skipped  updated  blocked");
   Object.keys(perColl).sort().forEach((c) => {
     const x = perColl[c];
     console.log(`${c.padEnd(20)} ${String(x.created).padStart(7)} ${String(x.skipped).padStart(8)} ${String(x.updated).padStart(8)} ${String(x.blocked).padStart(8)}`);
