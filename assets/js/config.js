@@ -2,7 +2,7 @@ export const SCHOOL_CONFIG = {
   name: "ROYALBRIDGE INT'L SCHOOL",
   shortName: "ROYALBRIDGE",
   motto: "Inspiring Excellence",
-  address: "10 LADY MAPO STAR CRESENT G/L ESTATE 3-3.",
+  address: "10 Lady Mapo Star Oyolu Junction, College Road 3-3 Onitsha",
   phone: "+234 000 000 0000",
   email: "info@royalbridge.edu.ng",
   primaryColor: "#0F7B63",
