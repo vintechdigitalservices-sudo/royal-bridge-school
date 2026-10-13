@@ -40,6 +40,27 @@
     </div>
     <nav class="bottom-nav" data-bottom-nav></nav>
   </div>
-  <script type="module">import {initApp} from "../../assets/js/app.js"; import {requireRole} from "../../assets/js/auth.js"; import {ROLES} from "../../assets/js/config.js"; import {paymentService} from "../../assets/js/services.js"; import {formatCurrency, formatDate} from "../../assets/js/utils.js"; initApp(); requireRole(ROLES.BURSAR); document.addEventListener("DOMContentLoaded",()=>{const p=paymentService.getAll(); document.getElementById("tbody").innerHTML=p.map(x=>`<tr><td>${x.receiptNumber}</td><td>${x.student||"-"}</td><td>${formatCurrency(x.amount)}</td><td>${formatDate(x.paymentDate)}</td><td><button class="btn btn-sm btn-secondary" onclick="alert('Print simulated for ${x.receiptNumber}')">Print</button></td></tr>`).join("")||'<tr><td colspan="5" class="text-center text-muted">No receipts</td></tr>';});</script>
+  <script type="module">
+    import {initApp} from "../../assets/js/app.js";
+    import {requireRole} from "../../assets/js/auth.js";
+    import {ROLES} from "../../assets/js/config.js";
+    import {paymentService} from "../../assets/js/services.js";
+    import {formatCurrency, formatDate} from "../../assets/js/utils.js";
+    import {showModal} from "../../assets/js/modal.js";
+    initApp(); requireRole(ROLES.BURSAR);
+    document.addEventListener("DOMContentLoaded",()=>{
+      const p=paymentService.getAll();
+      const tbody=document.getElementById("tbody");
+      tbody.innerHTML=p.map(x=>`<tr><td>${x.receiptNumber}</td><td>${x.student||"-"}</td><td>${formatCurrency(x.amount)}</td><td>${formatDate(x.paymentDate)}</td><td><button class="btn btn-sm btn-secondary" data-print="${x.receiptNumber}" data-student="${x.student||"-"}" data-amount="${formatCurrency(x.amount)}">Print</button></td></tr>`).join("")||'<tr><td colspan="5" class="text-center text-muted">No receipts</td></tr>';
+      tbody.querySelectorAll("[data-print]").forEach(btn=>btn.addEventListener("click",()=>{
+        showModal({
+          title:"Receipt "+btn.getAttribute("data-print"),
+          icon:"fa-receipt", variant:"success",
+          html:`<p><strong>${btn.getAttribute("data-student")}</strong></p><p>Amount: ${btn.getAttribute("data-amount")}</p>`,
+          buttons:[{label:"Close", variant:"secondary", value:true},{label:"Print", variant:"primary", value:"print", autofocus:true}]
+        }).then(v=>{ if(v==="print") window.print(); });
+      }));
+    });
+  </script>
 </body>
 </html>

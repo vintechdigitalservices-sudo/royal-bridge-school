@@ -18,7 +18,7 @@
         <h1 class="card-title">Activate Account</h1>
         <p class="text-muted">Set your password using activation code</p>
       </div>
-      <form onsubmit="event.preventDefault(); alert('Account activated (simulated).'); window.location.href='../index.html';">
+      <form id="activateForm">
         <div class="form-group">
           <label class="form-label" for="token">Activation Code</label>
           <input class="form-input" id="token" required />
@@ -42,6 +42,45 @@
       </div>
     </div>
   </div>
+  <script type="module">
+    import { showModal, showAlert } from "../assets/js/modal.js";
+
+    const form = document.getElementById("activateForm");
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const password = document.getElementById("password").value;
+      const confirm = document.getElementById("confirm").value;
+      if (password !== confirm) {
+        await showAlert("The two passwords do not match. Please try again.", { title: "Passwords don't match", icon: "fa-triangle-exclamation", variant: "warning" });
+        return;
+      }
+
+      await showAlert("Your account has been activated successfully. You can now log in with your new password.", {
+        title: "Account Activated", icon: "fa-circle-check", variant: "success"
+      });
+
+      if ("Notification" in window && Notification.permission === "default") {
+        const enabled = await showModal({
+          title: "Enable Notifications",
+          icon: "fa-bell",
+          html: `<p>Stay updated with announcements, results, fee payments and account activity. Would you like to enable notifications?</p>`,
+          buttons: [
+            { label: "Not now", variant: "secondary", value: false },
+            { label: "Enable Notifications", variant: "primary", value: true, autofocus: true }
+          ]
+        });
+        localStorage.setItem("rbi_notification_prompt_decided", "1");
+        if (enabled) {
+          try {
+            const res = await Notification.requestPermission();
+            if (res === "granted") new Notification("ROYALBRIDGE INT'L SCHOOL", { body: "Notifications are now enabled.", icon: "../assets/images/icon-192.png" });
+          } catch (err) { /* no-op */ }
+        }
+      }
+
+      window.location.href = "../index.html";
+    });
+  </script>
 </body>
 
 </html>

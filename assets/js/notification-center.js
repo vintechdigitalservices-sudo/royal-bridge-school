@@ -1,18 +1,17 @@
 import { getCurrentUser } from "./auth.js";
 import { appPath } from "./paths.js";
 import { notificationService } from "./services.js";
-import { iconForNotificationType } from "./config.js";
+import { showModal } from "./modal.js";
 import { query, on } from "./utils.js";
 
 const SOUND_PREF_KEY = "rbi_notification_sound";
-const PERMISSION_DISMISS_KEY = "rbi_notification_prompt_dismissed";
+const PERMISSION_DISMISS_KEY = "rbi_notification_prompt_decided";
 const POLL_INTERVAL = 6000;
 
 let seenIds = new Set();
 let pollTimer = null;
 let audioEl = null;
 let audioUnlocked = false;
-let panelEl = null;
 
 function soundEnabled() {
   return localStorage.getItem(SOUND_PREF_KEY) !== "off";
@@ -26,17 +25,8 @@ export function isSoundEnabled() {
   return soundEnabled();
 }
 
-function relativeTime(iso) {
-  const then = new Date(iso).getTime();
-  const diff = Math.max(0, Date.now() - then);
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "Just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs}h ago`;
-  const days = Math.floor(hrs / 24);
-  if (days < 7) return `${days}d ago`;
-  return new Date(iso).toLocaleDateString("en-NG", { day: "2-digit", month: "short", year: "numeric" });
+function notificationPageUrl() {
+  return appPath("pages/notifications.html");
 }
 
 function unlockAudio() {
@@ -82,78 +72,8 @@ function renderBadge() {
   }
 }
 
-function renderPanel() {
-  if (!panelEl) return;
-  const userId = currentUserId();
-  const items = userId ? notificationService.getByUser(userId).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)) : [];
-  const unread = items.filter((n) => !n.read).length;
-
-  const list = items.length
-    ? items.map((n) => `
-      <a class="notification-item ${n.read ? "" : "unread"}" data-notification-id="${n.id}" data-link="${n.link || ""}" href="#">
-        <span class="notification-item-icon"><i class="fas ${iconForNotificationType(n.type)}"></i></span>
-        <span class="notification-item-body">
-          <span class="notification-item-title">${n.title}</span>
-          <span class="notification-item-message">${n.message}</span>
-          <span class="notification-item-time">${relativeTime(n.createdAt)}</span>
-        </span>
-        ${n.read ? "" : '<span class="notification-dot" aria-hidden="true"></span>'}
-      </a>`).join("")
-    : `<div class="notification-empty"><i class="fas fa-bell-slash"></i><p>No notifications yet</p><span class="text-muted text-sm">You'll see school announcements, results and payment updates here.</span></div>`;
-
-  panelEl.innerHTML = `
-    <div class="notification-panel-header">
-      <strong>Notifications</strong>
-      <button class="btn btn-ghost btn-sm" data-mark-all ${unread ? "" : "disabled"}>Mark all as read</button>
-    </div>
-    <div class="notification-panel-list">${list}</div>
-    <div class="notification-panel-footer">
-      <a class="btn btn-secondary w-full" href="${appPath("pages/notifications.html")}">View all notifications</a>
-    </div>`;
-
-  on(panelEl.querySelector("[data-mark-all]"), "click", (e) => {
-    e.stopPropagation();
-    const uid = currentUserId();
-    if (uid) notificationService.markAllRead(uid);
-    refresh();
-  });
-
-  panelEl.querySelectorAll("[data-notification-id]").forEach((item) => {
-    on(item, "click", (e) => {
-      e.preventDefault();
-      const id = item.getAttribute("data-notification-id");
-      notificationService.markRead(id);
-      refresh();
-      closePanel();
-      const link = item.getAttribute("data-link");
-      if (link) window.location.href = appPath(link);
-    });
-  });
-}
-
-function openPanel() {
-  if (!panelEl) return;
-  panelEl.classList.add("open");
-  const bell = query("[data-notification-bell]");
-  if (bell) bell.setAttribute("aria-expanded", "true");
-}
-
-function closePanel() {
-  if (!panelEl) return;
-  panelEl.classList.remove("open");
-  const bell = query("[data-notification-bell]");
-  if (bell) bell.setAttribute("aria-expanded", "false");
-}
-
-function togglePanel() {
-  if (!panelEl) return;
-  if (panelEl.classList.contains("open")) closePanel();
-  else openPanel();
-}
-
 export function refresh() {
   renderBadge();
-  renderPanel();
 }
 
 function detectNewNotifications() {
@@ -185,7 +105,7 @@ window.addEventListener("storage", (e) => {
   }
 });
 
-function ensureShell() {
+function ensureBell() {
   const info = query("[data-user-info]");
   if (!info) return false;
   if (!query("[data-notification-bell]")) {
@@ -194,61 +114,52 @@ function ensureShell() {
     bell.className = "btn btn-ghost btn-icon notification-bell";
     bell.setAttribute("data-notification-bell", "");
     bell.setAttribute("aria-label", "Notifications");
-    bell.setAttribute("aria-expanded", "false");
     bell.innerHTML = '<i class="fas fa-bell"></i><span class="notification-badge" data-notification-badge hidden></span>';
     info.parentNode.insertBefore(bell, info);
-    on(bell, "click", (e) => { e.stopPropagation(); togglePanel(); });
-  }
-  if (!panelEl) {
-    panelEl = document.createElement("div");
-    panelEl.className = "notification-panel";
-    panelEl.setAttribute("role", "dialog");
-    panelEl.setAttribute("aria-label", "Notifications");
-    document.body.appendChild(panelEl);
-    on(document, "click", (e) => {
-      if (!panelEl.classList.contains("open")) return;
-      if (e.target.closest(".notification-panel") || e.target.closest("[data-notification-bell]")) return;
-      closePanel();
+    on(bell, "click", (e) => {
+      e.stopPropagation();
+      window.location.href = notificationPageUrl();
     });
   }
   return true;
 }
 
-function initPermissionBanner() {
+function showPermissionPopup() {
   if (!("Notification" in window)) return;
   const user = getCurrentUser();
   if (!user) return;
   if (Notification.permission !== "default") return;
   if (localStorage.getItem(PERMISSION_DISMISS_KEY) === "1") return;
-  if (document.querySelector(".notification-permission-banner")) return;
+  if (/notifications\.html$/i.test(window.location.pathname)) return;
+  if (document.querySelector(".custom-modal")) return;
 
-  const banner = document.createElement("div");
-  banner.className = "notification-permission-banner";
-  banner.innerHTML = `
-    <div class="notification-permission-text">
-      <strong>Stay updated</strong>
-      <span>Stay updated with important school announcements, results, payments and account activity.</span>
-    </div>
-    <div class="notification-permission-actions">
-      <button class="btn btn-sm btn-secondary" data-perm-later>Not now</button>
-      <button class="btn btn-sm btn-primary" data-perm-enable>Enable Notifications</button>
-    </div>`;
-  document.body.appendChild(banner);
-
-  on(banner.querySelector("[data-perm-later]"), "click", () => {
+  showModal({
+    title: "Enable Notifications",
+    icon: "fa-bell",
+    variant: "primary",
+    dismissible: true,
+    html: `<p>Get real-time alerts about announcements, results, fee payments and account activity for <strong>ROYALBRIDGE INT'L SCHOOL</strong>.</p>
+           <ul class="custom-modal-list">
+             <li><i class="fas fa-bullhorn"></i> School announcements</li>
+             <li><i class="fas fa-graduation-cap"></i> Result approvals</li>
+             <li><i class="fas fa-receipt"></i> Payment receipts</li>
+           </ul>`,
+    buttons: [
+      { label: "Not now", variant: "secondary", value: false },
+      { label: "Enable Notifications", variant: "primary", value: true, autofocus: true }
+    ]
+  }).then(async (enabled) => {
     localStorage.setItem(PERMISSION_DISMISS_KEY, "1");
-    banner.remove();
-  });
-  on(banner.querySelector("[data-perm-enable]"), "click", async () => {
-    try {
-      const result = await Notification.requestPermission();
-      localStorage.setItem(PERMISSION_DISMISS_KEY, "1");
-      banner.remove();
-      if (result === "granted") {
-        new Notification("ROYALBRIDGE INT'L SCHOOL", { body: "Notifications are now enabled. You'll be alerted about school activity.", icon: appPath("assets/images/icon-192.png") });
-      }
-    } catch (e) {
-      banner.remove();
+    if (enabled && "Notification" in window) {
+      try {
+        const result = await Notification.requestPermission();
+        if (result === "granted") {
+          new Notification("ROYALBRIDGE INT'L SCHOOL", {
+            body: "Notifications are now enabled. You'll be alerted about school activity.",
+            icon: appPath("assets/images/icon-192.png")
+          });
+        }
+      } catch (e) { /* no-op */ }
     }
   });
 }
@@ -260,10 +171,11 @@ export function initNotificationCenter() {
   // mark existing notifications as seen so we don't chime on first load
   notificationService.getByUser(user.userId).forEach((n) => seenIds.add(n.id));
 
-  if (ensureShell()) {
+  if (ensureBell()) {
     refresh();
     startPolling();
-    initPermissionBanner();
+    // show the enable-notifications popup shortly after entering the app
+    setTimeout(showPermissionPopup, 800);
   }
 
   // unlock audio on first user gesture (autoplay policy)
