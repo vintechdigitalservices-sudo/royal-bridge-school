@@ -14,6 +14,7 @@ export const ROLES = {
   ADMIN: "admin",
   BURSAR: "bursar",
   TEACHER: "teacher",
+  STUDENT: "student",
   PARENT: "parent"
 };
 
