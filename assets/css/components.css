@@ -140,6 +140,16 @@
   border-color: var(--primary);
 }
 
+/* Inputs below 16px make iOS auto-zoom on focus, which fights the viewport
+   and makes the page jump and the keyboard flicker. Keep them >= 16px on touch. */
+@media (max-width: 900px), (pointer: coarse) {
+  .form-input,
+  .form-select,
+  .form-textarea {
+    font-size: 16px;
+  }
+}
+
 .form-textarea {
   resize: vertical;
   min-height: 80px;

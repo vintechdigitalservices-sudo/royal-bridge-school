@@ -55,6 +55,7 @@ a { text-decoration: none; color: inherit; }
 ul { list-style: none; }
 button { font-family: inherit; cursor: pointer; border: none; background: none; }
 input, select, textarea { font-family: inherit; }
+input, select, textarea, button, a { touch-action: manipulation; }
 img { max-width: 100%; display: block; }
 
 .sr-only {

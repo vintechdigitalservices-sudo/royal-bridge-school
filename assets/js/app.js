@@ -25,12 +25,18 @@ function initDataLayer() {
     const label = detail.collection ? ` (${detail.collection})` : "";
     toast(`Could not save to the database${label}. Please retry.`, "error");
   });
+  // Login page never renders the dataset; hydrating it there only steals
+  // main-thread time from the keyboard. Pages inside the portal hydrate themselves.
+  if (document.getElementById("loginForm")) return;
   hydrate().catch(() => {
     // Errors are already surfaced via the data:error event.
   });
 }
 
+let initialized = false;
 export function initApp() {
+  if (initialized) return;
+  initialized = true;
   setConfig();
   initNavigation();
   initModals();

@@ -3,7 +3,7 @@
 
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#2340B0" />
   <meta name="description" content="ROYALBRIDGE INT'L SCHOOL portal — Inspiring Excellence" />
   <link rel="manifest" href="manifest.json" />
@@ -33,11 +33,11 @@
       <form id="loginForm">
         <div class="form-group">
           <label class="form-label" for="email">Email</label>
-          <input class="form-input" type="email" id="email" required placeholder="yourname@royalbridge.edu.ng" />
+          <input class="form-input" type="email" id="email" required placeholder="yourname@royalbridge.edu.ng" autocomplete="email" inputmode="email" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="next" />
         </div>
         <div class="form-group">
           <label class="form-label" for="password">Password</label>
-          <input class="form-input" type="password" id="password" required placeholder="Enter password" />
+          <input class="form-input" type="password" id="password" required placeholder="Enter password" autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="go" />
         </div>
         <div class="flex items-center justify-between mb-md">
           <label class="flex items-center gap-sm text-sm text-muted">
