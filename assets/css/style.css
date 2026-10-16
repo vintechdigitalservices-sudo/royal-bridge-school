@@ -102,9 +102,19 @@ img { max-width: 100%; display: block; }
   padding: 0 var(--spacing-md);
 }
 
+/* Full-height screens that center content (login/activate/reset).
+   svh is the *smallest* viewport height and stays constant while the URL bar
+   and keyboard animate, so centered content never jumps when the keyboard opens. */
+.auth-screen {
+  background: var(--background);
+  min-height: 100vh;
+  min-height: 100svh;
+}
+
 .app-shell {
   display: flex;
   min-height: 100vh;
+  min-height: 100svh;
   flex-direction: column;
 }
 
@@ -141,6 +151,7 @@ img { max-width: 100%; display: block; }
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  min-height: 100svh;
 }
 
 .topbar {
@@ -214,7 +225,12 @@ body {
     radial-gradient(1100px 620px at 100% -10%, rgba(59, 91, 219, 0.16), transparent 60%),
     radial-gradient(900px 520px at -10% 110%, rgba(35, 64, 176, 0.14), transparent 55%),
     var(--background);
-  background-attachment: fixed;
+}
+/* Fixed backgrounds repaint on every keyboard-driven scroll on mobile
+   (iOS has no true fixed attachment), which shows up as flashing/jumping
+   while typing. Keep the effect only on desktop pointers. */
+@media (min-width: 1024px) and (pointer: fine) {
+  body { background-attachment: fixed; }
 }
 
 ::selection { background: rgba(59, 91, 219, 0.45); color: #fff; }
