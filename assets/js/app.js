@@ -33,6 +33,8 @@ function initDataLayer() {
   });
 }
 
+// Each page calls initApp() once from its own module. The guard keeps
+// initialisation idempotent if it is ever called more than once.
 let initialized = false;
 export function initApp() {
   if (initialized) return;
@@ -42,12 +44,9 @@ export function initApp() {
   initModals();
   initPasswordToggles();
   initDataLayer();
-  initAuth();
+  // The login page has no session to validate until the form is submitted.
+  // Loading the Firebase SDK there competes with the mobile keyboard for the
+  // main thread on slow devices; login() loads it on demand instead.
+  if (!document.getElementById("loginForm")) initAuth();
   registerServiceWorker();
-}
-
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", initApp);
-} else {
-  initApp();
 }

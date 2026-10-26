@@ -103,12 +103,17 @@ img { max-width: 100%; display: block; }
 }
 
 /* Full-height screens that center content (login/activate/reset).
+   Use min-height, never height: a fixed height follows the mobile keyboard,
+   re-centres the card and moves the focused field while the keyboard animates.
    svh is the *smallest* viewport height and stays constant while the URL bar
-   and keyboard animate, so centered content never jumps when the keyboard opens. */
+   and keyboard animate; the page is still allowed to grow and scroll. */
 .auth-screen {
+  width: 100%;
   background: var(--background);
   min-height: 100vh;
   min-height: 100svh;
+  padding-top: max(var(--spacing-md), env(safe-area-inset-top));
+  padding-bottom: max(var(--spacing-md), env(safe-area-inset-bottom));
 }
 
 .app-shell {
