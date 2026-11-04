@@ -35,3 +35,25 @@ export async function getDbClient() {
   const m = await getFirebase();
   return { db: m.db, ...m.dbMod };
 }
+
+/**
+ * Creates a throwaway secondary Firebase app. Used only by privileged account
+ * provisioning (e.g. issuing a student's scratch-card account) so that creating
+ * the new user never signs the current admin/teacher out of the primary session.
+ * The caller MUST call `deleteApp(client.app)` when finished.
+ */
+let secondaryCounter = 0;
+export async function getSecondaryAuth() {
+  const m = await getFirebase();
+  const name = `rbi-provision-${Date.now().toString(36)}-${secondaryCounter++}`;
+  const app = m.appMod.initializeApp(firebaseConfig, name);
+  const auth = m.authMod.getAuth(app);
+  return {
+    app,
+    auth,
+    deleteApp: m.appMod.deleteApp,
+    createUserWithEmailAndPassword: m.authMod.createUserWithEmailAndPassword,
+    updateProfile: m.authMod.updateProfile,
+    signOut: m.authMod.signOut
+  };
+}

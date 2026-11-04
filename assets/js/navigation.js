@@ -57,7 +57,6 @@ function getNavItems(role) {
     return [
       { href: "dashboard.html", icon: "fa-tachometer-alt", label: "Dashboard" },
       { href: "results.html", icon: "fa-graduation-cap", label: "Check Results" },
-      { href: "attendance.html", icon: "fa-calendar-check", label: "Attendance" },
       { href: "fees.html", icon: "fa-money-bill-wave", label: "Fees" },
       { href: "receipts.html", icon: "fa-file-invoice", label: "Receipts" },
       { href: "announcements.html", icon: "fa-bullhorn", label: "Announcements" }
@@ -145,3 +144,4 @@ export function initNavigation() {
   initUserMenu();
   initNotificationCenter();
 }
+

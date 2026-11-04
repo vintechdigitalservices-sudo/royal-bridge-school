@@ -166,7 +166,7 @@ function buildDocs() {
   subjects.forEach((s) => docs.push(["subjects", s.subjectId, { ...s, isDemo: true, dataOrigin: "development-seed" }]));
 
   const staff = [
-    { staffId: "stf-admin", firstName: "Adebola", lastName: "Okoye", role: "admin", email: "admin@royalbridge.edu.ng" },
+    { staffId: "stf-admin", firstName: "RoyalBridge", lastName: "Admin", role: "admin", email: "rayabridgeacademy@gmail.com" },
     { staffId: "stf-bursar", firstName: "Funmilayo", lastName: "Adekunle", role: "bursar", email: "bursar@royalbridge.edu.ng" },
     { staffId: "stf-t1", firstName: "Chukwuemeka", lastName: "Eze", role: "teacher", email: "teacher1@royalbridge.edu.ng" },
     { staffId: "stf-t2", firstName: "Ngozi", lastName: "Okafor", role: "teacher", email: "teacher2@royalbridge.edu.ng" },
@@ -184,7 +184,7 @@ function buildDocs() {
   students.forEach((s) => docs.push(["students", s.studentId, { ...s, status: "active", isDemo: true, dataOrigin: "development-seed" }]));
 
   const users = [
-    { uid: "u-admin", email: "admin@royalbridge.edu.ng", role: "admin", staffId: "stf-admin" },
+    { uid: "u-admin", email: "rayabridgeacademy@gmail.com", role: "admin", staffId: "stf-admin" },
     { uid: "u-bursar", email: "bursar@royalbridge.edu.ng", role: "bursar", staffId: "stf-bursar" },
     { uid: "u-teacher1", email: "teacher1@royalbridge.edu.ng", role: "teacher", staffId: "stf-t1" },
     { uid: "u-student1", email: "student1@royalbridge.edu.ng", role: "student", studentId: "stu-001" },
@@ -323,14 +323,14 @@ async function main() {
   // --- Firebase Auth accounts (so the client signs in via Firebase Auth and role
   //     is resolved from users/{uid}, never chosen on the client) ---
   const authUsers = [
-    { uid: "u-admin", email: "admin@royalbridge.edu.ng", displayName: "Adebola Okoye" },
+    { uid: "u-admin", email: "rayabridgeacademy@gmail.com", displayName: "RoyalBridge Admin", password: "rayabridge123" },
     { uid: "u-bursar", email: "bursar@royalbridge.edu.ng", displayName: "Funmilayo Adekunle" },
     { uid: "u-teacher1", email: "teacher1@royalbridge.edu.ng", displayName: "Chukwuemeka Eze" },
     { uid: "u-student1", email: "student1@royalbridge.edu.ng", displayName: "Ada Obi" },
     { uid: "u-student2", email: "student2@royalbridge.edu.ng", displayName: "Emeka Nwosu" }
   ];
   const authCounts = { created: 0, skipped: 0 };
-  console.log("\nFirebase Auth accounts (password: password123)");
+  console.log("\nFirebase Auth accounts (default password: password123; admin uses configured password)");
   for (const u of authUsers) {
     if (DRY) { console.log(`  [dry] would ensure auth user ${u.uid} <${u.email}>`); continue; }
     try {
@@ -339,7 +339,7 @@ async function main() {
     } catch (err) {
       if (err.code === "auth/user-not-found") {
         try {
-          await admin.auth().createUser({ uid: u.uid, email: u.email, password: "password123", displayName: u.displayName, emailVerified: true });
+          await admin.auth().createUser({ uid: u.uid, email: u.email, password: u.password || "password123", displayName: u.displayName, emailVerified: true });
           authCounts.created++;
         } catch (e2) {
           problems.push(`auth ${u.uid}: create failed -> ${e2.message}`);

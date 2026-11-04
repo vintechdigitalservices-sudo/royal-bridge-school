@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <script src="../../assets/js/theme-init.js"></script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#2340B0" />
@@ -65,12 +66,26 @@
     import { subjectsFor, levelGroupForClass } from "../../assets/js/reporting.js";
     import { query } from "../../assets/js/utils.js";
     import { toast } from "../../assets/js/notifications.js";
-    import { whenDataReady } from "../../assets/js/data/store.js";
+    import { whenDataReady, isReady } from "../../assets/js/data/store.js";
+    import { teacherClasses, teacherClassIds, teacherSubjectCodesFor } from "../../assets/js/permissions.js";
+    import { escapeHtml, loadingRow, setButtonLoading } from "../../assets/js/ui.js";
 
     initApp();
     requireRole(ROLES.TEACHER);
 
+    const me = getCurrentUser();
     let students = [];
+    let allowedIds = new Set();
+
+    function fillClassOptions() {
+      const classes = teacherClasses(me);
+      allowedIds = new Set(classes.map((c) => c.classId));
+      const sel = query("#classSel");
+      const current = sel.value;
+      sel.innerHTML = '<option value="">Class</option>' + classes.map((c) => `<option value="${c.classId}">${escapeHtml(c.name)}${c.arm ? " " + escapeHtml(c.arm) : ""}</option>`).join("");
+      if (current && allowedIds.has(current)) sel.value = current;
+      students = studentService.getAll().filter((s) => allowedIds.has(s.classId));
+    }
 
     function termOptions() {
       const current = sessionService.getCurrentTerm().name || CURRENT_TERM;
@@ -81,9 +96,12 @@
 
     function subjectsForSelection() {
       const classId = query("#classSel").value;
-      if (!classId) return [];
+      if (!classId || !allowedIds.has(classId)) return [];
       const group = levelGroupForClass(classId);
-      return subjectsFor(group, "termly").map((s) => ({ code: s.code, label: s.label }));
+      const allowed = teacherSubjectCodesFor(classId, me);
+      return subjectsFor(group, "termly")
+        .filter((s) => !allowed.size || allowed.has(s.code))
+        .map((s) => ({ code: s.code, label: s.label }));
     }
 
     function fillSubjects() {
@@ -104,13 +122,29 @@
       const classId = query("#classSel").value;
       const code = query("#subjectSel").value;
       const term = query("#termSel").value;
-      const list = students.filter((s) => !classId || s.classId === classId);
+      if (!isReady()) {
+        query("#tbody").innerHTML = loadingRow(6, "Loading results…");
+        return;
+      }
+      if (!allowedIds.size) {
+        query("#tbody").innerHTML = `<tr><td colspan="6" class="text-center text-muted">No class has been assigned to you yet.</td></tr>`;
+        return;
+      }
+      if (!classId) {
+        query("#tbody").innerHTML = `<tr><td colspan="6" class="text-center text-muted">Select one of your classes to begin.</td></tr>`;
+        return;
+      }
+      const list = students.filter((s) => s.classId === classId);
+      if (!list.length) {
+        query("#tbody").innerHTML = `<tr><td colspan="6" class="text-center text-muted">No students in this class yet.</td></tr>`;
+        return;
+      }
       const existing = classId && term ? existingMap(classId, term) : {};
       query("#tbody").innerHTML = list
         .map((s) => {
           const sc = code && existing[s.studentId] ? (existing[s.studentId].subjects || {})[code] || {} : {};
           return `<tr>
-            <td>${s.firstName} ${s.lastName}</td>
+            <td>${escapeHtml(`${s.firstName || ""} ${s.lastName || ""}`)}</td>
             <td><input class="form-input rs-ca" style="width:80px" type="number" min="0" max="20" data-id="${s.studentId}" value="${sc.ca != null ? sc.ca : ""}" /></td>
             <td><input class="form-input rs-mid" style="width:80px" type="number" min="0" max="20" data-id="${s.studentId}" value="${sc.mid != null ? sc.mid : ""}" /></td>
             <td><input class="form-input rs-exam" style="width:80px" type="number" min="0" max="60" data-id="${s.studentId}" value="${sc.exam != null ? sc.exam : ""}" /></td>
@@ -187,10 +221,7 @@
 
     document.addEventListener("DOMContentLoaded", () => {
       query("#termSel").innerHTML = termOptions();
-      query("#classSel").innerHTML =
-        '<option value="">Class</option>' +
-        classService.getAll().map((c) => `<option value="${c.classId}">${c.name}${c.arm ? " " + c.arm : ""}</option>`).join("");
-      students = studentService.getAll();
+      fillClassOptions();
       query("#classSel").addEventListener("change", () => {
         fillSubjects();
         render();
@@ -201,10 +232,7 @@
       query("#submitResults").addEventListener("click", () => save(true));
       render();
       whenDataReady().then(() => {
-        query("#classSel").innerHTML =
-          '<option value="">Class</option>' +
-          classService.getAll().map((c) => `<option value="${c.classId}">${c.name}${c.arm ? " " + c.arm : ""}</option>`).join("");
-        students = studentService.getAll();
+        fillClassOptions();
         fillSubjects();
         render();
       });

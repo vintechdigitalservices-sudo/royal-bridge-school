@@ -1,29 +1,14 @@
 import { getCurrentUser } from "./auth.js";
 import { appPath } from "./paths.js";
 import { notificationService } from "./services.js";
-import { showModal } from "./modal.js";
 import { query, on } from "./utils.js";
 
-const SOUND_PREF_KEY = "rbi_notification_sound";
-const PERMISSION_DISMISS_KEY = "rbi_notification_prompt_decided";
 const POLL_INTERVAL = 6000;
 
 let seenIds = new Set();
 let pollTimer = null;
 let audioEl = null;
 let audioUnlocked = false;
-
-function soundEnabled() {
-  return localStorage.getItem(SOUND_PREF_KEY) !== "off";
-}
-
-export function setSoundEnabled(enabled) {
-  localStorage.setItem(SOUND_PREF_KEY, enabled ? "on" : "off");
-}
-
-export function isSoundEnabled() {
-  return soundEnabled();
-}
 
 function notificationPageUrl() {
   return appPath("pages/notifications.html");
@@ -42,7 +27,6 @@ function unlockAudio() {
 }
 
 function playChime() {
-  if (!soundEnabled()) return;
   if (!audioUnlocked) return; // respect autoplay restrictions until user interacts
   try {
     audioEl = audioEl || new Audio(appPath("assets/audio/notification-chime.wav"));
@@ -124,46 +108,6 @@ function ensureBell() {
   return true;
 }
 
-function showPermissionPopup() {
-  if (!("Notification" in window)) return;
-  const user = getCurrentUser();
-  if (!user) return;
-  if (Notification.permission !== "default") return;
-  if (localStorage.getItem(PERMISSION_DISMISS_KEY) === "1") return;
-  if (/notifications\.html$/i.test(window.location.pathname)) return;
-  if (document.querySelector(".custom-modal")) return;
-
-  showModal({
-    title: "Enable Notifications",
-    icon: "fa-bell",
-    variant: "primary",
-    dismissible: true,
-    html: `<p>Get real-time alerts about announcements, results, fee payments and account activity for <strong>ROYALBRIDGE INT'L SCHOOL</strong>.</p>
-           <ul class="custom-modal-list">
-             <li><i class="fas fa-bullhorn"></i> School announcements</li>
-             <li><i class="fas fa-graduation-cap"></i> Result approvals</li>
-             <li><i class="fas fa-receipt"></i> Payment receipts</li>
-           </ul>`,
-    buttons: [
-      { label: "Not now", variant: "secondary", value: false },
-      { label: "Enable Notifications", variant: "primary", value: true, autofocus: true }
-    ]
-  }).then(async (enabled) => {
-    localStorage.setItem(PERMISSION_DISMISS_KEY, "1");
-    if (enabled && "Notification" in window) {
-      try {
-        const result = await Notification.requestPermission();
-        if (result === "granted") {
-          new Notification("ROYALBRIDGE INT'L SCHOOL", {
-            body: "Notifications are now enabled. You'll be alerted about school activity.",
-            icon: appPath("assets/images/icon-192.png")
-          });
-        }
-      } catch (e) { /* no-op */ }
-    }
-  });
-}
-
 export function initNotificationCenter() {
   const user = getCurrentUser();
   if (!user) return;
@@ -174,8 +118,7 @@ export function initNotificationCenter() {
   if (ensureBell()) {
     refresh();
     startPolling();
-    // show the enable-notifications popup shortly after entering the app
-    setTimeout(showPermissionPopup, 800);
+    // notification permission/chime settings removed per requirements
   }
 
   // unlock audio on first user gesture (autoplay policy)

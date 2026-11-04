@@ -40,7 +40,7 @@ Password for all accounts: `password123`
 
 | Role    | Email                          |
 |---------|--------------------------------|
-| Admin   | admin@royalbridge.edu.ng       |
+| Admin   | rayabridgeacademy@gmail.com     |
 | Bursar  | bursar@royalbridge.edu.ng      |
 | Teacher | teacher1@royalbridge.edu.ng    |
 | Student | student1@ / student2@royalbridge.edu.ng |

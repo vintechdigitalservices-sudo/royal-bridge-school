@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <script src="../../assets/js/theme-init.js"></script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Dashboard — ROYALBRIDGE INT'L SCHOOL</title>
@@ -33,14 +34,58 @@
       </header>
       <main class="content">
         <section class="grid grid-stats mb-lg">
-          <article class="stat-card"><span class="stat-label">My Classes</span><span class="stat-value">-</span></article>
-          <article class="stat-card"><span class="stat-label">Students</span><span class="stat-value">-</span></article>
+          <article class="stat-card"><span class="stat-label">My Classes</span><span class="stat-value" data-stat-classes>-</span></article>
+          <article class="stat-card"><span class="stat-label">Students</span><span class="stat-value" data-stat-students>-</span></article>
         </section>
-        <div class="card"><div class="card-body"><p class="text-muted">Use sidebar to manage attendance and results.</p></div></div>
+        <section class="card mb-lg">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title">Quick Actions</h2>
+              <p class="card-subtitle">Your day-to-day tasks</p>
+            </div>
+          </div>
+          <div class="flex flex-wrap gap-md">
+            <a class="btn btn-primary" href="students.html"><i class="fas fa-user-plus"></i> Add Student</a>
+            <a class="btn btn-secondary" href="results.html"><i class="fas fa-graduation-cap"></i> Enter Results</a>
+            <a class="btn btn-secondary" href="announcements.html"><i class="fas fa-bullhorn"></i> Announcements</a>
+          </div>
+        </section>
+        <section class="card">
+          <div class="card-header"><h2 class="card-title">My Classes</h2></div>
+          <div id="classList" class="text-muted">Loading…</div>
+        </section>
       </main>
     </div>
     <nav class="bottom-nav" data-bottom-nav></nav>
   </div>
-  <script type="module">import {initApp} from "../../assets/js/app.js"; import {requireRole} from "../../assets/js/auth.js"; import {ROLES} from "../../assets/js/config.js"; initApp(); requireRole(ROLES.TEACHER);</script>
+  <script type="module">
+    import {initApp} from "../../assets/js/app.js";
+    import {requireRole, getCurrentUser} from "../../assets/js/auth.js";
+    import {ROLES} from "../../assets/js/config.js";
+    import {studentService} from "../../assets/js/services.js";
+    import {whenDataReady, isReady} from "../../assets/js/data/store.js";
+    import {teacherClasses, teacherClassIds} from "../../assets/js/permissions.js";
+    import {escapeHtml} from "../../assets/js/ui.js";
+    initApp(); requireRole(ROLES.TEACHER);
+    const me = getCurrentUser();
+    function render(){
+      if(!isReady()) return;
+      const classes = teacherClasses(me);
+      const ids = teacherClassIds(me);
+      const students = studentService.getAll().filter(s=>ids.has(s.classId));
+      document.querySelector("[data-stat-classes]").textContent = classes.length;
+      document.querySelector("[data-stat-students]").textContent = students.length;
+      const el = document.getElementById("classList");
+      if(!classes.length){
+        el.innerHTML = '<p class="text-muted">No class has been assigned to you yet. Ask the administrator to assign your class and subjects.</p>';
+        return;
+      }
+      el.innerHTML = `<div class="list-mobile">${classes.map(c=>{
+        const count = students.filter(s=>s.classId===c.classId).length;
+        return `<div class="mobile-list-item"><div class="mobile-list-header"><div class="mobile-list-title">${escapeHtml(c.name)}${c.arm?" "+escapeHtml(c.arm):""}</div><span class="badge">${count} student${count===1?"":"s"}</span></div></div>`;
+      }).join("")}</div>`;
+    }
+    document.addEventListener("DOMContentLoaded",()=>{render(); whenDataReady().then(render);});
+  </script>
 </body>
 </html>

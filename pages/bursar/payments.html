@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <script src="../../assets/js/theme-init.js"></script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Payments — ROYALBRIDGE INT'L SCHOOL</title>
@@ -34,6 +35,7 @@
       <main class="content">
         <div class="card" style="max-width:600px">
           <div class="card-body">
+            <div class="form-group"><label class="form-label">Find Student</label><input class="form-input" id="studentSearch" placeholder="Type a name or admission number" /></div>
             <div class="form-group"><label class="form-label">Student</label><select class="form-select" id="student"></select></div>
             <div class="grid" style="grid-template-columns:1fr 1fr; gap:var(--spacing-md)">
               <div class="form-group"><label class="form-label">Amount</label><input class="form-input" type="number" id="amount" /></div>
@@ -56,29 +58,52 @@
     import {query, formatCurrency} from "../../assets/js/utils.js";
     import {toast} from "../../assets/js/notifications.js";
     import {whenDataReady} from "../../assets/js/data/store.js";
+    import {escapeHtml, setButtonLoading} from "../../assets/js/ui.js";
     initApp(); requireRole(ROLES.BURSAR);
-    function renderStudents(){ query("#student").innerHTML=studentService.getAll().map(s=>`<option value="${s.studentId}">${s.firstName} ${s.lastName} (${s.admissionNumber})</option>`).join(""); }
-    document.addEventListener("DOMContentLoaded",()=>{
-      renderStudents(); whenDataReady().then(renderStudents);
-      query("#save").addEventListener("click",()=>{
-        const studentId=query("#student").value;
-        const p=paymentService.record({studentId, amount:query("#amount").value, paymentMethod:query("#method").value, feeCategory:query("#fee").value, notes:query("#notes").value});
+    function renderStudents(){
+      const term = (query("#studentSearch").value || "").toLowerCase();
+      const current = query("#student").value;
+      const list = studentService.getAll().filter(s=>{
+        if(!term) return true;
+        return `${s.firstName||""} ${s.lastName||""}`.toLowerCase().includes(term) || (s.admissionNumber||"").toLowerCase().includes(term);
+      });
+      query("#student").innerHTML = list.map(s=>`<option value="${s.studentId}">${escapeHtml(`${s.firstName||""} ${s.lastName||""} (${s.admissionNumber||""})`)}</option>`).join("") || '<option value="">No matching student</option>';
+      if(current && list.some(s=>s.studentId===current)) query("#student").value=current;
+    }
+    async function savePayment(){
+      const btn = query("#save");
+      const studentId=query("#student").value;
+      const amount=Number(query("#amount").value);
+      if(!studentId){ toast("Select a student","warning"); return; }
+      if(!amount || amount<=0){ toast("Enter a valid payment amount","warning"); return; }
+      setButtonLoading(btn,true,"Recording…");
+      try {
+        const p=await paymentService.record({studentId, amount, paymentMethod:query("#method").value, feeCategory:query("#fee").value, notes:query("#notes").value});
         const student=studentService.getById(studentId);
         const name=student?`${student.firstName} ${student.lastName}`:"a student";
-        const amount=formatCurrency(p.amount);
+        const formatted=formatCurrency(p.amount);
         notificationService.createForUsers(userService.getByRole(ROLES.ADMIN).map(u=>u.userId),{
           title:"New Payment Recorded",
-          message:`${amount} recorded for ${name} (${p.feeCategory}). Receipt ${p.receiptNumber}.`,
+          message:`${formatted} recorded for ${name} (${p.feeCategory}). Receipt ${p.receiptNumber}.`,
           type:"payment", link:"pages/admin/payments.html"
         });
         notificationService.createForUsers(userService.getAll().filter(u=>u.studentId===studentId).map(u=>u.userId),{
           title:"Payment Recorded",
-          message:`A payment of ${amount} for ${name} was recorded. Receipt ${p.receiptNumber}.`,
+          message:`A payment of ${formatted} for ${name} was recorded. Receipt ${p.receiptNumber}.`,
           type:"payment", link:"pages/student/receipts.html"
         });
         toast(`Payment recorded. Receipt: ${p.receiptNumber}`,"success");
         query("#amount").value=""; query("#notes").value="";
-      });
+      } catch (err) {
+        toast(err.message || "Could not record the payment. Please retry.","error");
+      } finally {
+        setButtonLoading(btn,false);
+      }
+    }
+    document.addEventListener("DOMContentLoaded",()=>{
+      renderStudents(); whenDataReady().then(renderStudents);
+      query("#studentSearch").addEventListener("input",renderStudents);
+      query("#save").addEventListener("click",savePayment);
     });
   </script>
 </body>

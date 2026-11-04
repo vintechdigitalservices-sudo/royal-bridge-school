@@ -2,6 +2,7 @@
 <html lang="en">
 
 <head>
+  <script src="../assets/js/theme-init.js"></script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Activate Account — ROYALBRIDGE INT'L SCHOOL</title>
@@ -60,25 +61,6 @@
       await showAlert("Your account has been activated successfully. You can now log in with your new password.", {
         title: "Account Activated", icon: "fa-circle-check", variant: "success"
       });
-
-      if ("Notification" in window && Notification.permission === "default") {
-        const enabled = await showModal({
-          title: "Enable Notifications",
-          icon: "fa-bell",
-          html: `<p>Stay updated with announcements, results, fee payments and account activity. Would you like to enable notifications?</p>`,
-          buttons: [
-            { label: "Not now", variant: "secondary", value: false },
-            { label: "Enable Notifications", variant: "primary", value: true, autofocus: true }
-          ]
-        });
-        localStorage.setItem("rbi_notification_prompt_decided", "1");
-        if (enabled) {
-          try {
-            const res = await Notification.requestPermission();
-            if (res === "granted") new Notification("ROYALBRIDGE INT'L SCHOOL", { body: "Notifications are now enabled.", icon: "../assets/images/icon-192.png" });
-          } catch (err) { /* no-op */ }
-        }
-      }
 
       window.location.href = "../index.html";
     });

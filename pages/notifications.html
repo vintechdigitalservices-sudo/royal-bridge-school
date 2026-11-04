@@ -2,6 +2,7 @@
 <html lang="en">
 
 <head>
+  <script src="../assets/js/theme-init.js"></script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#2340B0" />
@@ -59,16 +60,6 @@
           <div class="card-body">
             <div class="setting-row">
               <div>
-                <div class="font-semibold">Notification sound</div>
-                <div class="text-muted text-sm">Play a short chime when a new notification arrives.</div>
-              </div>
-              <label class="switch">
-                <input type="checkbox" id="soundToggle" checked />
-                <span class="switch-slider"></span>
-              </label>
-            </div>
-            <div class="setting-row">
-              <div>
                 <div class="font-semibold">Browser notifications</div>
                 <div class="text-muted text-sm" id="permStatus">Checking…</div>
               </div>
@@ -87,7 +78,7 @@
     import { appPath } from "../assets/js/paths.js";
     import { notificationService } from "../assets/js/services.js";
     import { iconForNotificationType } from "../assets/js/config.js";
-    import { isSoundEnabled, setSoundEnabled, refresh as refreshBell } from "../assets/js/notification-center.js";
+    import { refresh as refreshBell } from "../assets/js/notification-center.js";
     import { whenDataReady } from "../assets/js/data/store.js";
 
     initApp();
@@ -146,10 +137,6 @@
         if (user) notificationService.markAllRead(user.userId);
         refreshBell(); render();
       });
-
-      const soundToggle = document.getElementById("soundToggle");
-      soundToggle.checked = isSoundEnabled();
-      soundToggle.addEventListener("change", () => setSoundEnabled(soundToggle.checked));
 
       const permStatus = document.getElementById("permStatus");
       const enableBtn = document.getElementById("enablePush");

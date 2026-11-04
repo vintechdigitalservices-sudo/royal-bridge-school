@@ -10,6 +10,7 @@ export const repos = {
   staff: makeRepository(COLLECTIONS.STAFF),
   students: makeRepository(COLLECTIONS.STUDENTS),
   users: makeRepository(COLLECTIONS.USERS),
+  studentAccess: makeRepository(COLLECTIONS.STUDENT_ACCESS),
   teacherAssignments: makeRepository(COLLECTIONS.TEACHER_ASSIGNMENTS),
   feeStructures: makeRepository(COLLECTIONS.FEE_STRUCTURES),
   payments: makeRepository(COLLECTIONS.PAYMENTS),

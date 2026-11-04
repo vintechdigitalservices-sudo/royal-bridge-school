@@ -5,6 +5,9 @@ import { initPasswordToggles } from "./forms.js";
 import { initAuth } from "./auth.js";
 import { hydrate } from "./data/store.js";
 import { toast } from "./notifications.js";
+import { initPwa } from "./pwa.js";
+import { applyTheme, getTheme } from "./theme.js";
+import { initAppProgress } from "./ui.js";
 
 function setConfig() {
   window.SCHOOL_CONFIG = SCHOOL_CONFIG;
@@ -40,13 +43,16 @@ export function initApp() {
   if (initialized) return;
   initialized = true;
   setConfig();
+  applyTheme(getTheme());
   initNavigation();
   initModals();
   initPasswordToggles();
   initDataLayer();
+  initAppProgress();
   // The login page has no session to validate until the form is submitted.
   // Loading the Firebase SDK there competes with the mobile keyboard for the
   // main thread on slow devices; login() loads it on demand instead.
   if (!document.getElementById("loginForm")) initAuth();
   registerServiceWorker();
+  initPwa();
 }

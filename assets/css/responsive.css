@@ -72,3 +72,39 @@
   .content { padding: 0; max-width: 100%; }
   .card, .table-container { box-shadow: none; border: none; }
 }
+
+@media (max-width: 640px) {
+  .grid-stats { grid-template-columns: 1fr; }
+  .card-header { flex-direction: column; align-items: flex-start; }
+  .table-container { margin: 0 calc(-1 * var(--spacing-md)); width: calc(100% + 2 * var(--spacing-md)); border-radius: 0; border-left: none; border-right: none; }
+  .flex-wrap { gap: var(--spacing-sm); }
+  .flex-wrap .btn { flex: 1 1 100%; width: 100%; }
+  .content { padding-left: var(--spacing-md); padding-right: var(--spacing-md); }
+}
+
+/* Prevent accidental page-level horizontal overflow (tables scroll inside
+   their own .table-container instead). */
+html, body { max-width: 100%; overflow-x: hidden; }
+.app-shell, .main, .content, .topbar, .card, .grid, .stat-card { min-width: 0; }
+[data-user-info] { min-width: 0; overflow: hidden; }
+[data-user-info] .user-name,
+[data-user-info] .user-role { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.stat-value { overflow-wrap: anywhere; }
+
+@media (max-width: 767px) {
+  .card { padding: var(--spacing-md); }
+  .card-header > * { min-width: 0; max-width: 100%; }
+  .card-header .form-input,
+  .card-header .form-select { max-width: 100% !important; width: 100%; }
+  .bottom-nav-item { flex: 1 1 0; min-width: 0; padding-left: 4px; padding-right: 4px; }
+  .bottom-nav-item span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; }
+  .topbar { gap: var(--spacing-sm); }
+  .topbar .card-title { font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .modal-content { max-height: 92dvh; }
+}
+
+@media (max-width: 480px) {
+  .grid[style*="1fr 1fr"] { grid-template-columns: 1fr !important; }
+  .grid[style*="repeat"] { grid-template-columns: 1fr !important; }
+  .flex-wrap .btn { flex: 1 1 100%; width: 100%; }
+}

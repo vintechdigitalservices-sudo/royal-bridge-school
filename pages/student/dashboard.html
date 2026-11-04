@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <script src="../../assets/js/theme-init.js"></script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Dashboard — ROYALBRIDGE INT'L SCHOOL</title>
@@ -46,6 +47,10 @@
           <div class="card"><div class="card-body"><div class="text-muted text-sm">Admission No.</div><div class="font-semibold" id="statAdmission">—</div></div></div>
           <div class="card"><div class="card-body"><div class="text-muted text-sm">Fees Outstanding</div><div class="font-semibold" id="statOutstanding">—</div></div></div>
         </section>
+        <section class="card mb-lg">
+          <div class="card-header"><h2 class="card-title">Announcements</h2></div>
+          <div class="card-body" id="announcements"><p class="text-muted">Loading…</p></div>
+        </section>
       </main>
     </div>
     <nav class="bottom-nav" data-bottom-nav></nav>
@@ -54,8 +59,9 @@
     import { initApp } from "../../assets/js/app.js";
     import { requireRole, getCurrentUser } from "../../assets/js/auth.js";
     import { ROLES } from "../../assets/js/config.js";
-    import { classService, feeService } from "../../assets/js/services.js";
+    import { classService, feeService, announcementService } from "../../assets/js/services.js";
     import { formatCurrency } from "../../assets/js/utils.js";
+     import { escapeHtml } from "../../assets/js/ui.js";
     import { whenDataReady } from "../../assets/js/data/store.js";
 
     initApp();
@@ -71,9 +77,17 @@
       document.getElementById("statAdmission").textContent = s.admissionNumber || "—";
       const bal = feeService.getStudentBalance(s.studentId);
       document.getElementById("statOutstanding").textContent = formatCurrency(bal.outstanding);
-    }
+       const annEl = document.getElementById("announcements");
+       if (annEl) {
+         const items = (announcementService.getPublished ? announcementService.getPublished() : announcementService.getAll()).slice(0, 5);
+         annEl.innerHTML = items.length
+           ? items.map(function (a) { return '<div class="mb-md"><div class="font-medium">' + escapeHtml(a.title) + '</div><div class="text-muted text-sm">' + escapeHtml(a.message || "") + '</div></div>'; }).join("")
+           : '<p class="text-muted">No announcements.</p>';
+       }
+     }
 
     document.addEventListener("DOMContentLoaded", () => { render(); whenDataReady().then(render); });
   </script>
 </body>
 </html>
+

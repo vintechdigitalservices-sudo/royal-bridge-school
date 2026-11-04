@@ -3,6 +3,7 @@ import { storage } from "./storage.js";
 import { appPath } from "./paths.js";
 import { getAuthClient } from "./firebase/client.js";
 import { repos } from "./repositories/index.js";
+import { resolveLoginEmail } from "./access.js";
 
 function mapAuthError(err) {
   const code = (err && err.code) || "";
@@ -90,7 +91,7 @@ async function localLogin() {
   throw new Error("Cannot reach the login service. Check your connection and try again.");
 }
 
-export async function login(email, password) {
+export async function login(identifier, password) {
   let client;
   try {
     client = await getAuthClient();
@@ -100,9 +101,16 @@ export async function login(email, password) {
   }
   const { auth, signInWithEmailAndPassword, signOut } = client;
 
+  let email;
+  try {
+    email = await resolveLoginEmail(identifier);
+  } catch (err) {
+    throw new Error(err.message || "Invalid login details.");
+  }
+
   let cred;
   try {
-    cred = await signInWithEmailAndPassword(auth, (email || "").trim(), password);
+    cred = await signInWithEmailAndPassword(auth, email, password);
   } catch (err) {
     throw new Error(mapAuthError(err));
   }

@@ -20,6 +20,7 @@ export const COLLECTIONS = {
   STAFF: "staff",
   STUDENTS: "students",
   USERS: "users",
+  STUDENT_ACCESS: "studentAccess",
   TEACHER_ASSIGNMENTS: "teacherAssignments",
   FEE_STRUCTURES: "feeStructures",
   PAYMENTS: "payments",

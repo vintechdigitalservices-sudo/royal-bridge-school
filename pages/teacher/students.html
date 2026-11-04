@@ -1,8 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <script src="../../assets/js/theme-init.js"></script>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Students — ROYALBRIDGE INT'L SCHOOL</title>
   <link rel="stylesheet" href="../../assets/css/style.css" />
   <link rel="stylesheet" href="../../assets/css/components.css" />
@@ -33,29 +34,202 @@
       </header>
       <main class="content">
         <div class="card">
-          <div class="card-header"><select class="form-select" style="max-width:220px" id="classSel"><option value="">All Classes</option></select></div>
-          <div class="table-container"><table class="table"><thead><tr><th>Name</th><th>Class</th><th>Admission</th><th>Parent</th></tr></thead><tbody id="tbody"></tbody></table></div>
+          <div class="card-header" style="flex-wrap:wrap; gap:var(--spacing-sm)">
+            <div class="flex items-center gap-md flex-wrap">
+              <input class="form-input" style="max-width:260px" id="search" placeholder="Search name or admission number" />
+              <select class="form-select" style="max-width:220px" id="classSel"><option value="">All My Classes</option></select>
+            </div>
+            <button class="btn btn-primary" data-modal-open="addStudentModal"><i class="fas fa-user-plus"></i> Add Student</button>
+          </div>
+          <div class="table-container">
+            <table class="table"><thead><tr><th>Name</th><th>Class</th><th>Admission</th><th>Parent</th></tr></thead><tbody id="tbody"></tbody></table>
+          </div>
         </div>
       </main>
     </div>
     <nav class="bottom-nav" data-bottom-nav></nav>
   </div>
+
+  <div class="modal" id="addStudentModal">
+    <div class="modal-overlay" data-modal-close></div>
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 class="card-title">Add Student</h2>
+        <button class="btn btn-ghost btn-icon" data-modal-close><i class="fas fa-times"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="grid" style="grid-template-columns:1fr 1fr; gap:var(--spacing-md)">
+          <div class="form-group"><label class="form-label">First Name</label><input class="form-input" id="firstName" required /></div>
+          <div class="form-group"><label class="form-label">Last Name</label><input class="form-input" id="lastName" required /></div>
+        </div>
+        <div class="grid" style="grid-template-columns:1fr 1fr; gap:var(--spacing-md)">
+          <div class="form-group"><label class="form-label">Date of Birth</label><input class="form-input" id="dateOfBirth" type="date" /></div>
+          <div class="form-group"><label class="form-label">Gender</label>
+            <select class="form-select" id="gender"><option value="Male">Male</option><option value="Female">Female</option></select>
+          </div>
+        </div>
+        <div class="form-group"><label class="form-label">Class</label><select class="form-select" id="classId" required></select></div>
+        <div class="form-group"><label class="form-label">Parent / Guardian Name</label><input class="form-input" id="guardianName" /></div>
+        <div class="form-group"><label class="form-label">Parent / Guardian Phone</label><input class="form-input" id="guardianPhone" type="tel" required /></div>
+        <p class="text-muted text-sm">The admission number and scratch-card PIN are generated automatically when the student is saved.</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-modal-close>Cancel</button>
+        <button class="btn btn-primary" id="saveStudent">Save Student</button>
+      </div>
+    </div>
+  </div>
+
   <script type="module">
-    import {initApp} from "../../assets/js/app.js";
-    import {requireRole} from "../../assets/js/auth.js";
-    import {ROLES} from "../../assets/js/config.js";
-    import {classService, studentService} from "../../assets/js/services.js";
-    import {query} from "../../assets/js/utils.js";
-    import {whenDataReady} from "../../assets/js/data/store.js";
-    initApp(); requireRole(ROLES.TEACHER);
-    function render(){
-      const classes=classService.getAll(); query("#classSel").innerHTML='<option value="">All Classes</option>'+classes.map(c=>`<option value="${c.classId}">${c.name}${c.arm?" "+c.arm:""}</option>`).join("");
-      const list=studentService.getAll();
-      const cls=query("#classSel").value;
-      const f=list.filter(s=>!cls||s.classId===cls);
-      query("#tbody").innerHTML=f.map(s=>`<tr><td>${s.firstName} ${s.lastName}</td><td>${s.className}${s.classArm?" "+s.classArm:""}</td><td>${s.admissionNumber}</td><td>${s.parentName}</td></tr>`).join("");
+    import { initApp } from "../../assets/js/app.js";
+    import { requireRole, getCurrentUser } from "../../assets/js/auth.js";
+    import { ROLES } from "../../assets/js/config.js";
+    import { classService, studentService } from "../../assets/js/services.js";
+    import { query } from "../../assets/js/utils.js";
+    import { toast } from "../../assets/js/notifications.js";
+    import { whenDataReady, isReady } from "../../assets/js/data/store.js";
+    import { showModal } from "../../assets/js/modal.js";
+    import { createStudentPortalAccess, generateAdmissionNumber } from "../../assets/js/access.js";
+    import { teacherClasses, teacherClassIds } from "../../assets/js/permissions.js";
+    import { escapeHtml, loadingRow, emptyRow, setButtonLoading } from "../../assets/js/ui.js";
+
+    initApp();
+    requireRole(ROLES.TEACHER);
+
+    const me = getCurrentUser();
+    let allowedIds = new Set();
+
+    function classLabel(s) {
+      if (s.className) return `${s.className}${s.classArm ? " " + s.classArm : ""}`;
+      const c = classService.getById(s.classId);
+      return c ? `${c.name}${c.arm ? " " + c.arm : ""}` : (s.classId || "-");
     }
-    document.addEventListener("DOMContentLoaded",()=>{render(); whenDataReady().then(render); query("#classSel").addEventListener("change",render);});
+
+    function fillClassOptions() {
+      const classes = teacherClasses(me);
+      allowedIds = new Set(classes.map((c) => c.classId));
+      const filter = query("#classSel");
+      const current = filter.value;
+      filter.innerHTML = '<option value="">All My Classes</option>' + classes.map((c) => `<option value="${c.classId}">${escapeHtml(c.name)}${c.arm ? " " + escapeHtml(c.arm) : ""}</option>`).join("");
+      if (current && allowedIds.has(current)) filter.value = current;
+      const add = query("#classId");
+      const addCurrent = add.value;
+      add.innerHTML = classes.map((c) => `<option value="${c.classId}" data-name="${escapeHtml(c.name)}" data-arm="${escapeHtml(c.arm || "")}">${escapeHtml(c.name)}${c.arm ? " " + escapeHtml(c.arm) : ""}</option>`).join("");
+      if (addCurrent && allowedIds.has(addCurrent)) add.value = addCurrent;
+      query("[data-modal-open='addStudentModal']").disabled = classes.length === 0;
+    }
+
+    function render() {
+      fillClassOptions();
+      const all = studentService.getAll();
+      const list = all.filter((s) => allowedIds.has(s.classId));
+      const search = query("#search").value.toLowerCase();
+      const cls = query("#classSel").value;
+      const filtered = list.filter((s) => {
+        if (cls && s.classId !== cls) return false;
+        if (!search) return true;
+        return `${s.firstName || ""} ${s.lastName || ""}`.toLowerCase().includes(search) || String(s.admissionNumber || "").toLowerCase().includes(search);
+      });
+
+      if (!isReady()) {
+        query("#tbody").innerHTML = loadingRow(4, "Loading students…");
+        return;
+      }
+      if (!allowedIds.size) {
+        query("#tbody").innerHTML = emptyRow(4, "No class has been assigned to you yet. Ask the administrator to assign your class.");
+        return;
+      }
+      query("#tbody").innerHTML = filtered.map((s) => `
+        <tr>
+          <td>${escapeHtml(`${s.firstName || ""} ${s.lastName || ""}`)}</td>
+          <td>${escapeHtml(classLabel(s))}</td>
+          <td>${escapeHtml(s.admissionNumber)}</td>
+          <td>${escapeHtml(s.parentName || s.guardian?.name || "-")}<br><span class="text-muted text-xs">${escapeHtml(s.parentPhone || s.guardian?.phone || "")}</span></td>
+        </tr>
+      `).join("") || emptyRow(4, "No students in your class yet.");
+    }
+
+    async function saveStudent() {
+      const btn = query("#saveStudent");
+      const first = query("#firstName").value.trim();
+      const last = query("#lastName").value.trim();
+      const classId = query("#classId").value;
+      const phone = query("#guardianPhone").value.trim();
+      if (!first || !last) { toast("Enter the student's first and last name", "warning"); return; }
+      if (!classId || !allowedIds.has(classId)) { toast("Select one of your assigned classes", "warning"); return; }
+      if (!phone) { toast("Enter a parent/guardian phone number", "warning"); return; }
+
+      const opt = query("#classId").selectedOptions[0];
+      const className = opt?.getAttribute("data-name") || "";
+      const classArm = opt?.getAttribute("data-arm") || null;
+      const guardianName = query("#guardianName").value.trim();
+      const admissionNumber = generateAdmissionNumber(studentService.getAll());
+
+      setButtonLoading(btn, true, "Saving…");
+      try {
+        const student = await studentService.create({
+          firstName: first,
+          lastName: last,
+          admissionNumber,
+          dateOfBirth: query("#dateOfBirth").value || null,
+          classId,
+          className,
+          classArm,
+          gender: query("#gender").value,
+          sex: query("#gender").value === "Female" ? "F" : "M",
+          guardian: { name: guardianName, phone },
+          parentName: guardianName,
+          parentPhone: phone,
+          status: "active"
+        });
+
+        document.getElementById("addStudentModal").classList.remove("active");
+        render();
+
+        let access = null;
+        let accessError = "";
+        try {
+          access = await createStudentPortalAccess({
+            studentId: student.studentId,
+            admissionNumber: student.admissionNumber,
+            displayName: `${first} ${last}`
+          });
+        } catch (err) {
+          accessError = err.message || "Portal access could not be created.";
+        }
+
+        await showModal({
+          title: access ? "Student added" : "Student added — portal pending",
+          icon: access ? "fa-circle-check" : "fa-triangle-exclamation",
+          variant: access ? "success" : "warning",
+          html: `<p class="custom-modal-text"><strong>${escapeHtml(first)} ${escapeHtml(last)}</strong> was saved successfully.</p>
+            <p class="custom-modal-text mt-sm">Admission number: <strong>${escapeHtml(admissionNumber)}</strong></p>
+            ${access
+              ? `<p class="custom-modal-text mt-sm">Scratch card PIN: <strong style="font-size:1.25rem;letter-spacing:2px">${escapeHtml(access.pin)}</strong></p>
+                 <p class="text-muted text-sm mt-sm">Give this PIN to the student once. It is not shown again.</p>`
+              : `<p class="custom-modal-text mt-sm text-danger">${escapeHtml(accessError)}</p>`}`,
+          buttons: [{ label: "Done", variant: "primary", value: true, autofocus: true }]
+        });
+
+        query("#firstName").value = "";
+        query("#lastName").value = "";
+        query("#dateOfBirth").value = "";
+        query("#guardianName").value = "";
+        query("#guardianPhone").value = "";
+      } catch (err) {
+        toast(err.message || "Could not save the student", "error");
+      } finally {
+        setButtonLoading(btn, false);
+      }
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+      render();
+      whenDataReady().then(render);
+      query("#search").addEventListener("input", render);
+      query("#classSel").addEventListener("change", render);
+      query("#saveStudent").addEventListener("click", saveStudent);
+    });
   </script>
 </body>
 </html>

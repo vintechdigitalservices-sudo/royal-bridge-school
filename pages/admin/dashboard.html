@@ -2,8 +2,9 @@
 <html lang="en">
 
 <head>
+  <script src="../../assets/js/theme-init.js"></script>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#2340B0" />
   <title>Dashboard — ROYALBRIDGE INT'L SCHOOL</title>
   <link rel="stylesheet" href="../../assets/css/style.css" />
@@ -115,32 +116,39 @@
     import { initApp } from "../../assets/js/app.js";
     import { requireRole } from "../../assets/js/auth.js";
     import { ROLES } from "../../assets/js/config.js";
-    import { studentService, staffService, paymentService } from "../../assets/js/services.js";
+    import { studentService, staffService, paymentService, sessionService } from "../../assets/js/services.js";
     import { formatCurrency, formatDate } from "../../assets/js/utils.js";
-    import { whenDataReady } from "../../assets/js/data/store.js";
+    import { whenDataReady, isReady } from "../../assets/js/data/store.js";
+    import { escapeHtml, loadingRow } from "../../assets/js/ui.js";
 
     initApp();
     requireRole(ROLES.ADMIN);
 
     function render() {
+      const tbody = document.querySelector("[data-recent-payments]");
+      if (!isReady()) {
+        tbody.innerHTML = loadingRow(6, "Loading dashboard…");
+        return;
+      }
       const students = studentService.getAll();
       const staff = staffService.getAll();
       const payments = paymentService.getAll();
+      const term = sessionService.getCurrentTerm().name;
+      const termPayments = payments.filter((p) => !term || p.termName === term);
 
       document.querySelector("[data-stat-students]").textContent = students.length;
       document.querySelector("[data-stat-teachers]").textContent = staff.filter(s => s.role === "teacher").length;
       document.querySelector("[data-stat-staff]").textContent = staff.length;
-      document.querySelector("[data-stat-payments]").textContent = payments.slice(0, 5).reduce((sum, p) => sum + (Number(p.amount) || 0), 0) > 0 ? payments.length : payments.length;
+      document.querySelector("[data-stat-payments]").textContent = formatCurrency(termPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0));
 
-      const tbody = document.querySelector("[data-recent-payments]");
       tbody.innerHTML = payments.slice(0, 10).map(p => `
         <tr>
-          <td>${p.receiptNumber}</td>
-          <td>${p.student || "-"}</td>
-          <td>${p.className || "-"} ${p.classArm || ""}</td>
+          <td>${escapeHtml(p.receiptNumber)}</td>
+          <td>${escapeHtml(p.student || "-")}</td>
+          <td>${escapeHtml(`${p.className || "-"} ${p.classArm || ""}`.trim())}</td>
           <td>${formatCurrency(p.amount)}</td>
           <td>${formatDate(p.paymentDate)}</td>
-          <td>${p.paymentMethod}</td>
+          <td>${escapeHtml(p.paymentMethod || "-")}</td>
         </tr>
       `).join("") || `<tr><td colspan="6" class="text-center text-muted">No payments recorded</td></tr>`;
     }

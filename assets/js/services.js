@@ -17,9 +17,9 @@ export const studentService = {
   findByClass(classId) {
     return store.filter("students", (x) => x.classId === classId);
   },
-  create(data) {
+  async create(data) {
     const record = { studentId: uid(), status: "active", ...data };
-    store.createRecord("students", "studentId", record).catch(() => {});
+    await store.createRecord("students", "studentId", record);
     return deepClone(record);
   },
   update(id, data) {
@@ -132,7 +132,7 @@ export const paymentService = {
       };
     });
   },
-  record({ studentId, amount, paymentMethod, feeCategory, notes }) {
+  async record({ studentId, amount, paymentMethod, feeCategory, notes }) {
     const pay = {
       paymentId: uid(),
       receiptNumber: generateReceiptNumber(),
@@ -147,7 +147,7 @@ export const paymentService = {
       status: "confirmed",
       notes: notes || ""
     };
-    store.createRecord("payments", "paymentId", pay).catch(() => {});
+    await store.createRecord("payments", "paymentId", pay);
     return deepClone(pay);
   },
   getByStudent(studentId) {

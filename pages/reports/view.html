@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <script src="../../assets/js/theme-init.js"></script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#2340B0" />
@@ -54,12 +55,34 @@
       return params.get("type") === REPORT_TYPES.CUMULATIVE ? "Cumulative Report Sheet" : "Termly Report Sheet";
     }
 
+    function resolveStudentId(requested) {
+      // Students may only ever view their own report, no matter the URL.
+      if (me && me.role === ROLES.STUDENT && me.student) return me.student.studentId;
+      return requested;
+    }
+
     function draw() {
-      const studentId = params.get("studentId");
       const term = params.get("term") || (sessionService.getCurrentTerm().name || CURRENT_TERM);
       const type = params.get("type") || REPORT_TYPES.TERMLY;
       const isCumulative = type === REPORT_TYPES.CUMULATIVE;
-      const model = buildReportModel({ studentId, termName: term, reportType: isCumulative ? REPORT_TYPES.CUMULATIVE : REPORT_TYPES.TERMLY });
+      const studentId = resolveStudentId(params.get("studentId"));
+      const classId = me && me.role === ROLES.STUDENT && me.student ? me.student.classId : params.get("classId");
+      if (!studentId) {
+        query("#reportRoot").innerHTML = `<div class="alert alert-warning">No student specified.</div>`;
+        return;
+      }
+      // Students only ever render published results.
+      if (me && me.role === ROLES.STUDENT && me.student) {
+        const s = me.student;
+        const published = resultService
+          .getPublishedForStudent(s.studentId)
+          .filter((r) => r.termName === term);
+        if (!published.length) {
+          query("#reportRoot").innerHTML = `<div class="alert alert-warning">Result Not Yet Available for the selected term.</div>`;
+          return;
+        }
+      }
+      const model = buildReportModel({ studentId, classId, termName: term, reportType: isCumulative ? REPORT_TYPES.CUMULATIVE : REPORT_TYPES.TERMLY });
       const root = query("#reportRoot");
 
       if (!model) {

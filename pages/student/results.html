@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <script src="../../assets/js/theme-init.js"></script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#2340B0" />
@@ -36,6 +37,12 @@
         <section class="card">
           <div class="card-header" style="flex-wrap:wrap">
             <div class="flex items-center gap-md flex-wrap">
+              <select class="form-select" style="max-width:200px" id="sessionSel">
+                <option value="">Loading…</option>
+              </select>
+              <select class="form-select" style="max-width:200px" id="classSel">
+                <option value="">Loading…</option>
+              </select>
               <select class="form-select" style="max-width:200px" id="termSel">
                 <option value="First Term">First Term</option>
                 <option value="Second Term">Second Term</option>
@@ -50,8 +57,8 @@
           <div id="summary" class="text-muted mb-md">Loading…</div>
           <div class="table-container">
             <table class="table">
-              <thead><tr><th>Subject</th><th>C/A 20</th><th>Mid 20</th><th>Exam 60</th><th>Total 100</th><th>Remark</th></tr></thead>
-              <tbody id="tbody"></tbody>
+              <thead><tr><th>Subject</th><th data-ca-th>C/A 20</th><th data-mid-th>Mid 20</th><th data-exam-th>Exam 60</th><th data-total-th>Total 100</th><th>Remark</th></tr></thead>
+              <tbody id="tbody"><tr><td colspan="6" class="text-center text-muted"><i class="fas fa-circle-notch fa-spin" aria-hidden="true"></i> Loading…</td></tr></tbody>
             </table>
           </div>
         </section>
@@ -63,13 +70,26 @@
     import { initApp } from "../../assets/js/app.js";
     import { requireRole, getCurrentUser } from "../../assets/js/auth.js";
     import { ROLES } from "../../assets/js/config.js";
-    import { resultService } from "../../assets/js/services.js";
-    import { buildReportModel } from "../../assets/js/reporting.js";
+    import { resultService, sessionService, classService } from "../../assets/js/services.js";
+    import { buildReportModel, getWeights, classLabel } from "../../assets/js/reporting.js";
     import { query } from "../../assets/js/utils.js";
     import { whenDataReady } from "../../assets/js/data/store.js";
+    import { escapeHtml } from "../../assets/js/ui.js";
 
     initApp();
     requireRole(ROLES.STUDENT);
+
+    function classOptions() {
+      return classService.getAll();
+    }
+
+    function sessionLabel(sess) {
+      return sess ? `${sess.name}${sess.current ? " (current)" : ""}` : "-";
+    }
+
+    function classLabelFor(s) {
+      return classLabel(s.classId) || s.classId || "-";
+    }
 
     function render() {
       const u = getCurrentUser();
@@ -87,42 +107,81 @@
         return;
       }
 
-      const term = query("#termSel").value;
-      const published = resultService.getPublishedForStudent(s.studentId).filter((r) => r.termName === term);
-      summary.innerHTML = `<strong>${s.firstName} ${s.lastName}</strong> · ${term}`;
+      // keep selectors consistent with available data
+      const sessions = sessionService.getAll();
+      const sessionSel = query("#sessionSel");
+      const currentVal = sessionSel.value;
+      sessionSel.innerHTML = sessions.map((x) => `<option value="${escapeHtml(x.sessionId)}">${escapeHtml(sessionLabel(x))}</option>`).join("") || `<option value="">—</option>`;
+      const current = sessions.find((x) => x.current);
+      const val = currentVal && sessions.some((x) => x.sessionId === currentVal) ? currentVal : (current ? current.sessionId : (sessions[0] ? sessions[0].sessionId : ""));
+      sessionSel.value = val;
 
-      if (!published.length) {
-        tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted">No published results for ${term} yet.</td></tr>`;
+      const classes = classOptions();
+      const classSel = query("#classSel");
+      const currentClassVal = classSel.value;
+      classSel.innerHTML = classes.map((c) => `<option value="${escapeHtml(c.classId)}">${escapeHtml(classLabel(c.classId))}</option>`).join("") || `<option value="">—</option>`;
+      const cv = currentClassVal && classes.some((c) => c.classId === currentClassVal) ? currentClassVal : (s.classId || (classes[0] ? classes[0].classId : ""));
+      classSel.value = cv;
+
+      const sessionId = sessionSel.value || "";
+      const classId = classSel.value || "";
+      const term = query("#termSel").value;
+      const weights = getWeights();
+      query("[data-ca-th]").textContent = `C/A ${weights.ca}`;
+      query("[data-mid-th]").textContent = `Mid ${weights.mid}`;
+      query("[data-exam-th]").textContent = `Exam ${weights.exam}`;
+      query("[data-total-th]").textContent = `Total ${weights.ca + weights.mid + weights.exam}`;
+
+      // A result must belong to this exact student, session and term.
+      const matches = resultService
+        .getByStudent(s.studentId)
+        .filter((r) => r.sessionId === sessionId && r.termName === term);
+
+      const published = matches.filter((r) => /published/i.test(r.status || ""));
+      const show = published.find((r) => r.classId === classId) || published[0] || null;
+
+      if (!matches.length) {
+        // No result record exists for this session + class + term combination.
+        summary.innerHTML = `<strong>${escapeHtml(`${s.firstName || ""} ${s.lastName || ""}`)}</strong> · ${escapeHtml(classLabelFor(s))} · ${escapeHtml(term)}`;
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted">No Result Record Found</td></tr>`;
         return;
       }
 
-      const model = buildReportModel({ studentId: s.studentId, termName: term, reportType: "termly" });
-      if (!model || !model.academic || !model.academic.rows.length) {
+      if (!show) {
+        // A result exists for this selection but the school has not published it yet.
+        summary.innerHTML = `<strong>${escapeHtml(`${s.firstName || ""} ${s.lastName || ""}`)}</strong> · ${escapeHtml(classLabelFor(s))} · ${escapeHtml(term)}`;
+        tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted"><i class="fas fa-hourglass-half" aria-hidden="true"></i> Result Not Yet Available</td></tr>`;
+        return;
+      }
+
+      summary.innerHTML = `<strong>${escapeHtml(`${s.firstName || ""} ${s.lastName || ""}`)}</strong> · ${escapeHtml(classLabelFor(s))} · ${escapeHtml(`${sessionLabel(sessions.find((x) => x.sessionId === sessionId))} · ${term}`)}`;
+
+      const model = buildReportModel({ studentId: s.studentId, classId: show.classId, termName: term, reportType: "termly" });
+      if (!model || !model.academic || !model.academic.rows.some((r) => !r.missing)) {
         tbody.innerHTML = `<tr><td colspan="6" class="text-center text-muted">No result rows available.</td></tr>`;
         return;
       }
 
-      summary.innerHTML = `<strong>${s.firstName} ${s.lastName}</strong> · ${term} · Average: <strong>${model.academic.average}</strong>`
-        + (model.position ? ` · Position: <strong>${model.position}</strong>` : "")
-        + (model.classStats ? ` · Class High: ${model.classStats.highest} · Class Low: ${model.classStats.lowest}` : "");
+      summary.innerHTML += ` · Average: <strong>${model.academic.average}</strong>`
+        + (model.position ? ` · Position: <strong>${model.position}</strong>` : "");
 
       tbody.innerHTML = model.academic.rows.map((r) => `
         <tr>
-          <td>${r.label}</td>
+          <td>${escapeHtml(r.label)}</td>
           <td>${r.ca ?? "—"}</td>
           <td>${r.mid ?? "—"}</td>
           <td>${r.exam ?? "—"}</td>
           <td><strong>${r.total ?? "—"}</strong></td>
-          <td>${r.remark || "—"}</td>
+          <td>${escapeHtml(r.remark || "—")}</td>
         </tr>
       `).join("");
 
-      const base = `../reports/view.html?studentId=${encodeURIComponent(s.studentId)}`;
+      const base = `../reports/view.html?studentId=${encodeURIComponent(s.studentId)}&classId=${encodeURIComponent(show.classId)}`;
       reportBtn.href = `${base}&term=${encodeURIComponent(term)}&type=termly`;
       reportBtn.style.display = "";
 
-      const hasCumulative = resultService.getPublishedForStudent(s.studentId).some((r) => r.termSlug === "third-term");
-      if (hasCumulative) {
+      const cumulativeTarget = published.find((r) => r.termSlug === "third-term");
+      if (cumulativeTarget) {
         cumulativeBtn.href = `${base}&type=cumulative`;
         cumulativeBtn.style.display = "";
       }
@@ -131,6 +190,8 @@
     document.addEventListener("DOMContentLoaded", () => {
       render();
       query("#termSel").addEventListener("change", render);
+      query("#sessionSel").addEventListener("change", render);
+      query("#classSel").addEventListener("change", render);
       whenDataReady().then(render);
     });
   </script>

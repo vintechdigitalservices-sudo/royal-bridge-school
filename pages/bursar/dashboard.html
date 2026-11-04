@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <script src="../../assets/js/theme-init.js"></script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Dashboard — ROYALBRIDGE INT'L SCHOOL</title>
@@ -36,6 +37,19 @@
           <article class="stat-card"><span class="stat-label">Total Collected</span><span class="stat-value" data-collected>-</span></article>
           <article class="stat-card"><span class="stat-label">Payments</span><span class="stat-value" data-count>-</span></article>
         </section>
+        <section class="card mb-lg">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title">Quick Actions</h2>
+              <p class="card-subtitle">Payment operations</p>
+            </div>
+          </div>
+          <div class="flex flex-wrap gap-md">
+            <a class="btn btn-primary" href="payments.html"><i class="fas fa-receipt"></i> Record Payment</a>
+            <a class="btn btn-secondary" href="students.html"><i class="fas fa-users"></i> Find Student</a>
+            <a class="btn btn-secondary" href="receipts.html"><i class="fas fa-file-invoice"></i> Receipts</a>
+          </div>
+        </section>
         <section class="card">
           <div class="card-header"><h2 class="card-title">Recent Payments</h2></div>
           <div class="table-container"><table class="table"><thead><tr><th>Receipt</th><th>Student</th><th>Amount</th><th>Date</th><th>Method</th></tr></thead><tbody data-tbody></tbody></table></div>
@@ -50,13 +64,20 @@
     import {ROLES} from "../../assets/js/config.js";
     import {paymentService} from "../../assets/js/services.js";
     import {formatCurrency, formatDate} from "../../assets/js/utils.js";
-    import {whenDataReady} from "../../assets/js/data/store.js";
+    import {whenDataReady, isReady} from "../../assets/js/data/store.js";
+    import {escapeHtml, loadingRow} from "../../assets/js/ui.js";
     initApp(); requireRole(ROLES.BURSAR);
     function render(){
+      if(!isReady()){
+        document.querySelector("[data-count]").textContent = "…";
+        document.querySelector("[data-collected]").textContent = "…";
+        document.querySelector("[data-tbody]").innerHTML = loadingRow(5, "Loading payments…");
+        return;
+      }
       const p=paymentService.getAll();
       document.querySelector("[data-count]").textContent=p.length;
       document.querySelector("[data-collected]").textContent=formatCurrency(p.reduce((s,x)=>s+(Number(x.amount)||0),0));
-      document.querySelector("[data-tbody]").innerHTML=p.slice(0,10).map(x=>`<tr><td>${x.receiptNumber}</td><td>${x.student||"-"}</td><td>${formatCurrency(x.amount)}</td><td>${formatDate(x.paymentDate)}</td><td>${x.paymentMethod}</td></tr>`).join("")||`<tr><td colspan="5" class="text-center text-muted">No payments</td></tr>`;
+      document.querySelector("[data-tbody]").innerHTML=p.slice(0,10).map(x=>`<tr><td>${escapeHtml(x.receiptNumber)}</td><td>${escapeHtml(x.student||"-")}</td><td>${formatCurrency(x.amount)}</td><td>${formatDate(x.paymentDate)}</td><td>${escapeHtml(x.paymentMethod||"-")}</td></tr>`).join("")||`<tr><td colspan="5" class="text-center text-muted">No payments</td></tr>`;
     }
     document.addEventListener("DOMContentLoaded",()=>{render(); whenDataReady().then(render);});
   </script>

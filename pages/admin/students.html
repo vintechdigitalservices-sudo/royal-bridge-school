@@ -2,6 +2,7 @@
 <html lang="en">
 
 <head>
+  <script src="../../assets/js/theme-init.js"></script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <meta name="theme-color" content="#2340B0" />
@@ -99,14 +100,10 @@
             <input class="form-input" id="lastName" required />
           </div>
         </div>
-        <div class="form-group">
-          <label class="form-label">Admission Number</label>
-          <input class="form-input" id="admissionNumber" required />
-        </div>
         <div class="grid" style="grid-template-columns: 1fr 1fr; gap: var(--spacing-md)">
           <div class="form-group">
-            <label class="form-label">Class</label>
-            <select class="form-select" id="classId" required></select>
+            <label class="form-label">Date of Birth</label>
+            <input class="form-input" id="dateOfBirth" type="date" />
           </div>
           <div class="form-group">
             <label class="form-label">Gender</label>
@@ -116,10 +113,21 @@
             </select>
           </div>
         </div>
-        <div class="form-group">
-          <label class="form-label">Parent Email</label>
-          <input class="form-input" id="parentEmail" type="email" required />
+        <div class="grid" style="grid-template-columns: 1fr 1fr; gap: var(--spacing-md)">
+          <div class="form-group">
+            <label class="form-label">Class</label>
+            <select class="form-select" id="classId" required></select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Parent / Guardian Phone</label>
+            <input class="form-input" id="guardianPhone" type="tel" required />
+          </div>
         </div>
+        <div class="form-group">
+          <label class="form-label">Parent / Guardian Name</label>
+          <input class="form-input" id="guardianName" />
+        </div>
+        <p class="text-muted text-sm">The admission number and scratch-card PIN are generated automatically when the student is saved.</p>
       </div>
       <div class="modal-footer">
         <button class="btn btn-secondary" data-modal-close>Cancel</button>
@@ -135,78 +143,159 @@
     import { studentService, classService } from "../../assets/js/services.js";
     import { query } from "../../assets/js/utils.js";
     import { toast } from "../../assets/js/notifications.js";
-    import { whenDataReady } from "../../assets/js/data/store.js";
+    import { whenDataReady, isReady } from "../../assets/js/data/store.js";
+    import { showModal } from "../../assets/js/modal.js";
+    import { createStudentPortalAccess, generateAdmissionNumber } from "../../assets/js/access.js";
+    import { escapeHtml, loadingRow, emptyRow, setButtonLoading } from "../../assets/js/ui.js";
 
     initApp();
     requireRole(ROLES.ADMIN);
 
+    function classLabel(s) {
+      if (s.className) return `${s.className}${s.classArm ? " " + s.classArm : ""}`;
+      const c = classService.getById(s.classId);
+      return c ? `${c.name}${c.arm ? " " + c.arm : ""}` : (s.classId || "-");
+    }
+
+    function fillSelect(select, classes, keep) {
+      const current = keep ? select.value : "";
+      select.innerHTML = classes.map(c => `<option value="${c.classId}" data-name="${escapeHtml(c.name)}" data-arm="${escapeHtml(c.arm || "")}">${escapeHtml(c.name)}${c.arm ? " " + escapeHtml(c.arm) : ""}</option>`).join("");
+      if (current && classes.some(c => c.classId === current)) select.value = current;
+    }
+
     function render() {
       const students = studentService.getAll();
       const classes = classService.getAll();
-      const classFilter = query("#classFilter");
-      classFilter.innerHTML = '<option value="">All Classes</option>' + classes.map(c => `<option value="${c.classId}">${c.name}${c.arm? " "+c.arm : ""}</option>`).join("");
+      fillSelect(query("#classFilter"), classes, true);
+      query("#classFilter").insertAdjacentHTML("afterbegin", '<option value="">All Classes</option>');
+      query("#classFilter").value = query("#classFilter").value || "";
 
       const search = query("#studentSearch").value.toLowerCase();
-      const cls = classFilter.value;
+      const cls = query("#classFilter").value;
       const filtered = students.filter(s => {
-        const matchSearch = !search || s.firstName.toLowerCase().includes(search) || s.lastName.toLowerCase().includes(search) || s.admissionNumber.toLowerCase().includes(search);
+        const name = `${s.firstName || ""} ${s.lastName || ""}`.toLowerCase();
+        const matchSearch = !search || name.includes(search) || String(s.admissionNumber || "").toLowerCase().includes(search);
         const matchCls = !cls || s.classId === cls;
         return matchSearch && matchCls;
       });
 
-      query("#studentsTable").innerHTML = filtered.map(s => `
-        <tr>
-          <td>${s.admissionNumber}</td>
-          <td>${s.firstName} ${s.lastName}</td>
-          <td>${s.gender}</td>
-          <td>${s.className}</td>
-          <td>${s.classArm || "-"}</td>
-          <td>${s.parentName}</td>
-          <td>${s.parentPhone}</td>
-        </tr>
-      `).join("") || `<tr><td colspan="7" class="text-center text-muted">No students found</td></tr>`;
+      const empty = isReady() && !filtered.length;
 
-      query("#studentsMobile").innerHTML = filtered.map(s => `
+      query("#studentsTable").innerHTML = !isReady()
+        ? loadingRow(7, "Loading students…")
+        : filtered.map(s => `
+        <tr>
+          <td>${escapeHtml(s.admissionNumber)}</td>
+          <td>${escapeHtml(`${s.firstName || ""} ${s.lastName || ""}`)}</td>
+          <td>${escapeHtml(s.gender || s.sex || "-")}</td>
+          <td>${escapeHtml(classLabel(s))}</td>
+          <td>${escapeHtml(s.classArm || "-")}</td>
+          <td>${escapeHtml(s.parentName || s.guardian?.name || "-")}</td>
+          <td>${escapeHtml(s.parentPhone || s.guardian?.phone || "-")}</td>
+        </tr>
+      `).join("") || emptyRow(7, "No students found");
+
+      query("#studentsMobile").innerHTML = !isReady()
+        ? `<div class="text-center text-muted p-lg"><i class="fas fa-circle-notch fa-spin"></i> Loading students…</div>`
+        : filtered.map(s => `
         <div class="mobile-list-item">
           <div class="mobile-list-header">
-            <div class="mobile-list-title">${s.firstName} ${s.lastName}</div>
-            <span class="badge">${s.admissionNumber}</span>
+            <div class="mobile-list-title">${escapeHtml(`${s.firstName || ""} ${s.lastName || ""}`)}</div>
+            <span class="badge">${escapeHtml(s.admissionNumber)}</span>
           </div>
-          <div class="mobile-list-meta">Class: ${s.className}${s.classArm? " "+s.classArm : ""} • Gender: ${s.gender}</div>
-          <div class="mobile-list-meta">Parent: ${s.parentName} • ${s.parentPhone}</div>
+          <div class="mobile-list-meta">Class: ${escapeHtml(classLabel(s))} • Gender: ${escapeHtml(s.gender || s.sex || "-")}</div>
+          <div class="mobile-list-meta">Parent: ${escapeHtml(s.parentName || s.guardian?.name || "-")} • ${escapeHtml(s.parentPhone || s.guardian?.phone || "-")}</div>
         </div>
       `).join("") || `<div class="text-center text-muted">No students found</div>`;
     }
 
+    function refresh() {
+      fillSelect(query("#classId"), classService.getAll(), true);
+      render();
+    }
+
+    async function saveStudent() {
+      const btn = query("#saveStudent");
+      const first = query("#firstName").value.trim();
+      const last = query("#lastName").value.trim();
+      const classId = query("#classId").value;
+      const guardianPhone = query("#guardianPhone").value.trim();
+      if (!first || !last) { toast("Enter the student's first and last name", "warning"); return; }
+      if (!classId) { toast("Select a class", "warning"); return; }
+      if (!guardianPhone) { toast("Enter a parent/guardian phone number", "warning"); return; }
+
+      const clsOpt = query("#classId").selectedOptions[0];
+      const className = clsOpt?.getAttribute("data-name") || "";
+      const classArm = clsOpt?.getAttribute("data-arm") || null;
+      const admissionNumber = generateAdmissionNumber(studentService.getAll());
+      const guardianName = query("#guardianName").value.trim();
+
+      setButtonLoading(btn, true, "Saving…");
+      try {
+        const student = await studentService.create({
+          firstName: first,
+          lastName: last,
+          admissionNumber,
+          dateOfBirth: query("#dateOfBirth").value || null,
+          classId,
+          className,
+          classArm,
+          gender: query("#gender").value,
+          sex: query("#gender").value === "Female" ? "F" : "M",
+          guardian: { name: guardianName, phone: guardianPhone },
+          parentName: guardianName,
+          parentPhone: guardianPhone,
+          status: "active"
+        });
+
+        document.querySelector("#addStudentModal").classList.remove("active");
+        refresh();
+
+        let access = null;
+        let accessError = "";
+        try {
+          access = await createStudentPortalAccess({
+            studentId: student.studentId,
+            admissionNumber: student.admissionNumber,
+            displayName: `${first} ${last}`
+          });
+        } catch (err) {
+          accessError = err.message || "Portal access could not be created.";
+        }
+
+        await showModal({
+          title: access ? "Student added" : "Student added — portal pending",
+          icon: access ? "fa-circle-check" : "fa-triangle-exclamation",
+          variant: access ? "success" : "warning",
+          html: `<p class="custom-modal-text"><strong>${escapeHtml(first)} ${escapeHtml(last)}</strong> was saved successfully.</p>
+            <p class="custom-modal-text mt-sm">Admission number: <strong>${escapeHtml(admissionNumber)}</strong></p>
+            ${access
+              ? `<p class="custom-modal-text mt-sm">Scratch card PIN: <strong style="font-size:1.25rem;letter-spacing:2px">${escapeHtml(access.pin)}</strong></p>
+                 <p class="text-muted text-sm mt-sm">Give this PIN to the student once. It is not shown again.</p>`
+              : `<p class="custom-modal-text mt-sm text-danger">${escapeHtml(accessError)}</p>
+                 <p class="text-muted text-sm">You can retry portal access from the student record later.</p>`}`,
+          buttons: [{ label: "Done", variant: "primary", value: true, autofocus: true }]
+        });
+
+        query("#firstName").value = "";
+        query("#lastName").value = "";
+        query("#dateOfBirth").value = "";
+        query("#guardianName").value = "";
+        query("#guardianPhone").value = "";
+      } catch (err) {
+        toast(err.message || "Could not save the student", "error");
+      } finally {
+        setButtonLoading(btn, false);
+      }
+    }
+
     document.addEventListener("DOMContentLoaded", () => {
-      render(); whenDataReady().then(render);
+      refresh();
+      whenDataReady().then(refresh);
       query("#studentSearch").addEventListener("input", render);
       query("#classFilter").addEventListener("change", render);
       query("#clearFilters").addEventListener("click", () => { query("#studentSearch").value=""; query("#classFilter").value=""; render(); });
-
-      const classSel = query("#classId");
-      classSel.innerHTML = classService.getAll().map(c => `<option value="${c.classId}" data-name="${c.name}" data-arm="${c.arm||""}">${c.name}${c.arm? " "+c.arm : ""}</option>`).join("");
-
-      query("#saveStudent").addEventListener("click", () => {
-        const clsOpt = classSel.selectedOptions[0];
-        const s = {
-          firstName: query("#firstName").value,
-          lastName: query("#lastName").value,
-          admissionNumber: query("#admissionNumber").value,
-          classId: classSel.value,
-          className: clsOpt?.getAttribute("data-name") || "",
-          classArm: clsOpt?.getAttribute("data-arm") || null,
-          gender: query("#gender").value,
-          parentEmail: query("#parentEmail").value,
-          parentName: "",
-          parentPhone: "",
-          status: "active"
-        };
-        studentService.create(s);
-        toast("Student added (simulated)", "success");
-        document.querySelector("#addStudentModal").classList.remove("active");
-        render();
-      });
+      query("#saveStudent").addEventListener("click", saveStudent);
     });
   </script>
 </body>

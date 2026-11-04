@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+  <script src="../../assets/js/theme-init.js"></script>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Settings — ROYALBRIDGE INT'L SCHOOL</title>
@@ -36,16 +37,46 @@
           <div class="card">
             <div class="card-header"><h2 class="card-title">School Information</h2></div>
             <div class="card-body">
-              <div class="form-group"><label class="form-label">School Name</label><input class="form-input" value="ROYALBRIDGE INT'L SCHOOL" /></div>
-              <div class="form-group"><label class="form-label">Motto</label><input class="form-input" value="Knowledge for Excellence" /></div>
-              <div class="form-group"><label class="form-label">Address</label><textarea class="form-textarea">Port Harcourt, Rivers State, Nigeria</textarea></div>
+              <div class="form-group"><label class="form-label">School Name</label><input class="form-input" data-school-name /></div>
+              <div class="form-group"><label class="form-label">Motto</label><input class="form-input" data-school-motto /></div>
+              <div class="form-group"><label class="form-label">Address</label><textarea class="form-textarea" data-school-address></textarea></div>
             </div>
           </div>
           <div class="card">
             <div class="card-header"><h2 class="card-title">Academic Settings</h2></div>
             <div class="card-body">
-              <div class="form-group"><label class="form-label">Current Session</label><input class="form-input" value="2026/2027" /></div>
-              <div class="form-group"><label class="form-label">Current Term</label><input class="form-input" value="First Term" /></div>
+              <div class="form-group"><label class="form-label">Current Session</label><input class="form-input" data-current-session /></div>
+              <div class="form-group"><label class="form-label">Current Term</label><input class="form-input" data-current-term /></div>
+            </div>
+          </div>
+        </div>
+        <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:var(--spacing-lg); margin-top:var(--spacing-lg)">
+          <div class="card">
+            <div class="card-header">
+              <h2 class="card-title">Appearance</h2>
+              <p class="card-subtitle">Theme preferences</p>
+            </div>
+            <div class="card-body">
+              <div class="flex items-center justify-between">
+                <div>
+                  <div class="font-medium">Dark Mode</div>
+                  <div class="text-muted text-sm">Switch between light and dark theme</div>
+                </div>
+                <label class="flex items-center gap-sm" style="cursor:pointer">
+                  <input type="checkbox" data-theme-toggle />
+                  <span data-theme-label>Light</span>
+                </label>
+              </div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-header">
+              <h2 class="card-title">Install App</h2>
+              <p class="card-subtitle">Add the portal to your home screen</p>
+            </div>
+            <div class="card-body">
+              <p class="text-muted text-sm mb-md" data-install-status>Checking installation support…</p>
+              <button class="btn btn-primary" type="button" data-install-app><i class="fas fa-download"></i> Install App</button>
             </div>
           </div>
         </div>
@@ -53,6 +84,27 @@
     </div>
     <nav class="bottom-nav" data-bottom-nav></nav>
   </div>
-  <script type="module">import {initApp} from "../../assets/js/app.js"; import {requireRole} from "../../assets/js/auth.js"; import {ROLES} from "../../assets/js/config.js"; initApp(); requireRole(ROLES.ADMIN);</script>
+  <script type="module">
+    import {initApp} from "../../assets/js/app.js";
+    import {requireRole} from "../../assets/js/auth.js";
+    import {ROLES, SCHOOL_CONFIG} from "../../assets/js/config.js";
+    import {initTheme} from "../../assets/js/theme.js";
+    import {sessionService} from "../../assets/js/services.js";
+    import {query} from "../../assets/js/utils.js";
+    import {whenDataReady} from "../../assets/js/data/store.js";
+    initApp();
+    requireRole(ROLES.ADMIN);
+    initTheme();
+
+    query("[data-school-name]").value = SCHOOL_CONFIG.name;
+    query("[data-school-motto]").value = SCHOOL_CONFIG.motto;
+    query("[data-school-address]").value = SCHOOL_CONFIG.address;
+    query("[data-current-session]").value = sessionService.getCurrent().name || "-";
+    query("[data-current-term]").value = sessionService.getCurrentTerm().name || "-";
+    whenDataReady().then(() => {
+      query("[data-current-session]").value = sessionService.getCurrent().name || "-";
+      query("[data-current-term]").value = sessionService.getCurrentTerm().name || "-";
+    });
+  </script>
 </body>
 </html>
