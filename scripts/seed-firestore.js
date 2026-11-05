@@ -320,36 +320,70 @@ async function main() {
 
   if (!DRY && batchCount > 0) await batch.commit();
 
-  // --- Firebase Auth accounts (so the client signs in via Firebase Auth and role
-  //     is resolved from users/{uid}, never chosen on the client) ---
-  const authUsers = [
-    { uid: "u-admin", email: "rayabridgeacademy@gmail.com", displayName: "RoyalBridge Admin", password: "rayabridge123" },
-    { uid: "u-bursar", email: "bursar@royalbridge.edu.ng", displayName: "Funmilayo Adekunle" },
-    { uid: "u-teacher1", email: "teacher1@royalbridge.edu.ng", displayName: "Chukwuemeka Eze" },
-    { uid: "u-student1", email: "student1@royalbridge.edu.ng", displayName: "Ada Obi" },
-    { uid: "u-student2", email: "student2@royalbridge.edu.ng", displayName: "Emeka Nwosu" }
+  // --- Firebase Auth accounts (profiled server-side via Admin SDK only) ---
+  const adminEmail = "royalbridge@gmail.com";
+  const adminPassword = process.env.ADMIN_PASSWORD;
+  if (!adminPassword) {
+    console.error("\nFATAL: ADMIN_PASSWORD environment variable is not set. Set it to provision the administrator account.");
+    process.exit(1);
+  }
+  console.log("\nProvisioning administrator account: " + adminEmail);
+  try {
+    const adminUserRecord = await admin.auth().getUserByEmail(adminEmail);
+    console.log("  admin already exists, updating custom claims");
+    if (!adminUserRecord.customClaims || adminUserRecord.customClaims.role !== "admin") {
+      await admin.auth().setCustomUserClaims(adminUserRecord.uid, { role: "admin" });
+    }
+  } catch (err) {
+    if (err.code !== "auth/user-not-found") throw err;
+    await admin.auth().createUser({ uid: "u-admin", email: adminEmail, password: adminPassword, displayName: "RoyalBridge Admin", emailVerified: true });
+    await admin.auth().setCustomUserClaims("u-admin", { role: "admin" });
+    console.log("  admin account created");
+  }
+
+  // Delete obsolete demo accounts that must no longer be usable.
+  const obsoleteEmails = [
+    "rayabridgeacademy@gmail.com",
+    "bursar@royalbridge.edu.ng",
+    "teacher1@royalbridge.edu.ng",
+    "teacher2@royalbridge.edu.ng",
+    "teacher3@royalbridge.edu.ng",
+    "student1@royalbridge.edu.ng",
+    "student2@royalbridge.edu.ng"
   ];
-  const authCounts = { created: 0, skipped: 0 };
-  console.log("\nFirebase Auth accounts (default password: password123; admin uses configured password)");
-  for (const u of authUsers) {
-    if (DRY) { console.log(`  [dry] would ensure auth user ${u.uid} <${u.email}>`); continue; }
+  for (const email of obsoleteEmails) {
     try {
-      await admin.auth().getUser(u.uid);
-      authCounts.skipped++;
+      const userRecord = await admin.auth().getUserByEmail(email);
+      await admin.auth().deleteUser(userRecord.uid);
+      console.log("  deleted obsolete auth user " + email);
     } catch (err) {
-      if (err.code === "auth/user-not-found") {
-        try {
-          await admin.auth().createUser({ uid: u.uid, email: u.email, password: u.password || "password123", displayName: u.displayName, emailVerified: true });
-          authCounts.created++;
-        } catch (e2) {
-          problems.push(`auth ${u.uid}: create failed -> ${e2.message}`);
-        }
-      } else {
-        problems.push(`auth ${u.uid}: lookup failed -> ${err.message}`);
+      if (err.code !== "auth/user-not-found") {
+        problems.push("auth cleanup for " + email + " -> " + err.message);
       }
     }
   }
-  console.log(`  created=${authCounts.created} skipped=${authCounts.skipped}`);
+
+  // --- Student portal access for demo students (PINs are printed once, server-side) ---
+  const demoStudents = [
+    { studentId: "stu-001", admissionNumber: "RBI/2026/001", firstName: "Ada", lastName: "Obi", classId: "nursery-2" },
+    { studentId: "stu-002", admissionNumber: "RBI/2026/002", firstName: "Emeka", lastName: "Nwosu", classId: "primary-3a" },
+    { studentId: "stu-003", admissionNumber: "RBI/2026/003", firstName: "Zainab", lastName: "Bello", classId: "primary-1a" }
+  ];
+  for (const stu of demoStudents) {
+    const key = stu.admissionNumber.replace(/[^A-Z0-9]/gi, "").toUpperCase();
+    try {
+      const authUser = await admin.auth().getUserByEmail("rbi." + key.toLowerCase() + "@students.royalbridge.app");
+      console.log("  student portal " + stu.admissionNumber + " already exists, skipping");
+      continue;
+    } catch (err) {
+      if (err.code !== "auth/user-not-found") throw err;
+    }
+    const pin = Math.random().toString().slice(2, 8);
+    await admin.auth().createUser({ uid: "u-student-" + stu.studentId.replace("stu-", ""), email: "rbi." + key.toLowerCase() + "@students.royalbridge.app", password: pin, displayName: stu.firstName + " " + stu.lastName, emailVerified: true });
+    docs.push(["users", "u-student-" + stu.studentId.replace("stu-", ""), { uid: "u-student-" + stu.studentId.replace("stu-", ""), email: "rbi." + key.toLowerCase() + "@students.royalbridge.app", role: "student", studentId: stu.studentId, active: true, isDemo: true, dataOrigin: "development-seed" }]);
+    docs.push(["studentAccess", key, { studentId: stu.studentId, loginEmail: "rbi." + key.toLowerCase() + "@students.royalbridge.app", uid: "u-student-" + stu.studentId.replace("stu-", ""), active: true, isDemo: true, dataOrigin: "development-seed", createdAt: new Date().toISOString() }]);
+    console.log("  student portal created: admission " + stu.admissionNumber + " | PIN (shown once) " + pin);
+  }
 
   console.log("\nCollection            created  skipped  updated  blocked");
   Object.keys(perColl).sort().forEach((c) => {

@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <script src="../assets/js/theme-init.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#2340B0" />
+  <title>Complete Your Profile — ROYALBRIDGE INT'L SCHOOL</title>
+  <link rel="stylesheet" href="../assets/css/style.css" />
+  <link rel="stylesheet" href="../assets/css/components.css" />
+  <link rel="stylesheet" href="../assets/css/responsive.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+</head>
+
+<body>
+  <div class="flex items-center justify-center p-md auth-screen">
+    <div class="card" style="width: 100%; max-width: 420px">
+      <div class="text-center mb-lg">
+        <div class="mb-md flex items-center justify-center">
+          <img src="../assets/images/logo.jpg" alt="ROYALBRIDGE INT'L SCHOOL logo" style="width: 72px; height: 72px; object-fit: contain" />
+        </div>
+        <h1 class="card-title" data-brand-name>ROYALBRIDGE INT'L SCHOOL</h1>
+        <p class="text-muted" data-brand-motto>Inspiring Excellence</p>
+      </div>
+
+      <h2 class="card-title mb-md">Complete Your Profile</h2>
+      <p class="text-muted text-sm mb-lg">Tell us about yourself so the administrator can review and approve your account.</p>
+
+      <form id="profileForm">
+        <div class="form-group">
+          <label class="form-label" for="fullName">Full Name</label>
+          <input class="form-input" type="text" id="fullName" required readonly placeholder="Full name" />
+          <p class="text-muted text-xs">Set during registration. This is the name shown throughout the portal.</p>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="profileEmail">Email Address</label>
+          <input class="form-input" type="email" id="profileEmail" required readonly placeholder="Email address" />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="section">Staff Type / Section <span class="text-muted text-xs">(primary school)</span></label>
+          <select class="form-select" id="section" required>
+            <option value="">Select section</option>
+            <option value="Nursery">Nursery</option>
+            <option value="Primary">Primary</option>
+            <option value="Daycare">Daycare</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="classId">Assigned Class</label>
+          <select class="form-select" id="classId" required>
+            <option value="">Select a section first</option>
+          </select>
+          <p class="text-muted text-xs" id="classHint">Available classes depend on the section you select.</p>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="phone">Phone Number</label>
+          <input class="form-input" type="tel" id="phone" required placeholder="e.g. 0803 000 0000" />
+        </div>
+        <div id="profileError" class="alert alert-danger mb-md" style="display: none"></div>
+        <button class="btn btn-primary w-full" id="btnProfileSubmit" type="submit">
+          <span class="btn-label">Submit for Verification</span>
+          <span class="btn-spinner" style="display:none"><i class="fas fa-circle-notch fa-spin"></i></span>
+        </button>
+      </form>
+
+      <div class="text-center mt-md">
+        <a href="../index.html" class="btn btn-ghost w-full" type="button">Back to Login</a>
+      </div>
+  <script type="module">
+    import { initApp } from "../../assets/js/app.js";
+    import { getCurrentUser, completeStaffProfile } from "../../assets/js/auth.js";
+    import { classService } from "../../assets/js/services.js";
+    import { sectionClassFilter } from "../../assets/js/config.js";
+    import { whenDataReady } from "../../assets/js/data/store.js";
+    import { toast } from "../../assets/js/notifications.js";
+
+    initApp();
+
+    const form = document.getElementById("profileForm");
+    const error = document.getElementById("profileError");
+    const btn = document.getElementById("btnProfileSubmit");
+    const spinner = btn.querySelector(".btn-spinner");
+    const label = btn.querySelector(".btn-label");
+    const sectionSel = document.getElementById("section");
+    const classSel = document.getElementById("classId");
+    const classHint = document.getElementById("classHint");
+    const fullNameIn = document.getElementById("fullName");
+    const emailIn = document.getElementById("profileEmail");
+
+    let submitting = false;
+
+    function setLoading(loading) {
+      if (loading) {
+        btn.disabled = true;
+        btn.setAttribute("aria-busy", "true");
+        spinner.style.display = "inline";
+        label.textContent = "Submitting…";
+      } else {
+        btn.disabled = false;
+        btn.removeAttribute("aria-busy");
+        spinner.style.display = "none";
+        label.textContent = "Submit for Verification";
+      }
+    }
+
+    function showError(msg) {
+      if (!msg) { error.style.display = "none"; error.textContent = ""; return; }
+      error.textContent = msg;
+      error.style.display = "block";
+    }
+
+    const user = getCurrentUser();
+    if (user) {
+      fullNameIn.value = user.fullName || (user.staff ? `${user.staff.firstName} ${user.staff.lastName}` : "") || user.email || "";
+      emailIn.value = user.email || "";
+    }
+
+    sectionSel.addEventListener("change", () => {
+      const section = sectionSel.value;
+      classSel.innerHTML = '<option value="">Loading classes…</option>';
+      classSel.disabled = true;
+      classHint.textContent = "Loading classes…";
+
+      whenDataReady().then(() => {
+        const allClasses = classService.getAll();
+        const filter = sectionClassFilter(section);
+        const filtered = filter ? allClasses.filter(filter) : [];
+        classSel.innerHTML = '<option value="">Select a class</option>' +
+          filtered.map(c => `<option value="${c.classId}">${c.name}${c.arm ? " " + c.arm : ""}</option>`).join("");
+        classSel.disabled = filtered.length === 0;
+        classHint.textContent = filtered.length
+          ? "Choose the class you teach."
+          : "No classes available for this section yet. Contact the administrator.";
+      });
+    });
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (submitting) return;
+      const section = sectionSel.value;
+      const classId = classSel.value;
+      const phone = document.getElementById("phone").value.trim();
+
+      if (!section || !["Nursery", "Primary", "Daycare"].includes(section)) {
+        showError("Select a valid section.");
+        return;
+      }
+      if (!classId) {
+        showError("Select a class.");
+        return;
+      }
+      if (!phone) {
+        showError("Phone number is required.");
+        return;
+      }
+
+      submitting = true;
+      setLoading(true);
+      showError("");
+
+      try {
+        await completeStaffProfile({ section, classId, phone });
+        toast("Profile submitted for approval.", "success");
+        window.location.href = "./dashboard.html";
+      } catch (err) {
+        showError(err.message || "Could not save the profile. Please retry.");
+      } finally {
+        submitting = false;
+        setLoading(false);
+      }
+    });
+  </script>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,16 @@
+{
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "hosting": {
+    "public": ".",
+    "ignore": [
+      "node_modules/**",
+      "package-lock.json",
+      "*.json",
+      "scripts/**",
+      "inspect-out.txt",
+      "filelist.txt"
+    ]
+  }
+}

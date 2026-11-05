@@ -48,23 +48,47 @@
         <div class="flex items-center gap-md" data-user-info></div>
       </header>
       <main class="content">
-        <div class="card">
+        <div class="card mb-lg">
           <div class="card-header">
-            <input class="form-input" style="max-width: 280px" id="search" placeholder="Search staff" />
-            <button class="btn btn-primary" data-modal-open="addStaffModal"><i class="fas fa-plus"></i> Add Staff</button>
+            <h2 class="card-title">All Staff</h2>
+            <p class="card-subtitle">Every registered staff member and their current account status.</p>
           </div>
           <div class="table-container">
             <table class="table">
               <thead>
                 <tr>
                   <th>Name</th>
-                  <th>Role</th>
                   <th>Email</th>
-                  <th>Phone</th>
+                  <th>Section</th>
+                  <th>Class</th>
+                  <th>Role</th>
                   <th>Status</th>
                 </tr>
               </thead>
-              <tbody id="tbody"></tbody>
+              <tbody id="allStaffBody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <h2 class="card-title">Pending Staff Applications</h2>
+            <p class="card-subtitle">Review and approve or reject new staff applications.</p>
+          </div>
+          <div class="table-container">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Full Name</th>
+                  <th>Email</th>
+                  <th>Phone</th>
+                  <th>Section</th>
+                  <th>Requested Class</th>
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody id="pendingBody"></tbody>
             </table>
           </div>
         </div>
@@ -73,74 +97,99 @@
     <nav class="bottom-nav" data-bottom-nav></nav>
   </div>
 
-  <div class="modal" id="addStaffModal">
-    <div class="modal-overlay" data-modal-close></div>
-    <div class="modal-content">
-      <div class="modal-header">
-        <h2 class="card-title">Add Staff</h2>
-        <button class="btn btn-ghost btn-icon" data-modal-close><i class="fas fa-times"></i></button>
-      </div>
-      <div class="modal-body">
-        <div class="grid" style="grid-template-columns: 1fr 1fr; gap: var(--spacing-md)">
-          <div class="form-group"><label class="form-label">First Name</label><input class="form-input" id="firstName" required /></div>
-          <div class="form-group"><label class="form-label">Last Name</label><input class="form-input" id="lastName" required /></div>
-        </div>
-        <div class="form-group"><label class="form-label">Email</label><input class="form-input" id="email" type="email" required /></div>
-        <div class="form-group"><label class="form-label">Phone</label><input class="form-input" id="phone" required /></div>
-        <div class="form-group">
-          <label class="form-label">Role</label>
-          <select class="form-select" id="role">
-            <option value="teacher">Teacher</option>
-            <option value="bursar">Bursar</option>
-          </select>
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-secondary" data-modal-close>Cancel</button>
-        <button class="btn btn-primary" id="save">Save</button>
-      </div>
-    </div>
-  </div>
+
 
   <script type="module">
     import { initApp } from "../../assets/js/app.js";
     import { requireRole } from "../../assets/js/auth.js";
     import { ROLES } from "../../assets/js/config.js";
-    import { staffService } from "../../assets/js/services.js";
+    import { classService } from "../../assets/js/services.js";
     import { query } from "../../assets/js/utils.js";
     import { toast } from "../../assets/js/notifications.js";
     import { whenDataReady } from "../../assets/js/data/store.js";
+    import { showConfirm } from "../../assets/js/modal.js";
+    import { escapeHtml } from "../../assets/js/ui.js";
 
     initApp(); requireRole(ROLES.ADMIN);
-    function render() {
-      const list = staffService.getAll();
-      const search = query("#search").value.toLowerCase();
-      const filtered = list.filter(s => !search || `${s.firstName} ${s.lastName}`.toLowerCase().includes(search) || s.email.toLowerCase().includes(search));
-      query("#tbody").innerHTML = filtered.map(s => `
+    const reviewModal = document.createElement("div");
+    reviewModal.className = "modal active custom-modal";
+    reviewModal.innerHTML = `
+      <div class="modal-overlay" data-cm-overlay></div>
+      <div class="modal-content" style="max-width:480px" role="dialog" aria-modal="true">
+        <div class="modal-header"><h2 class="card-title" id="reviewTitle">Review Staff Application</h2><button class="btn btn-ghost btn-icon" data-cm-close aria-label="Close"><i class="fas fa-times"></i></button></div>
+        <div class="modal-body"><input type="hidden" id="reviewStaffId" /><div class="form-group"><label class="form-label">Full Name</label><input class="form-input" id="reviewFullName" readonly /></div><div class="form-group"><label class="form-label">Email</label><input class="form-input" id="reviewEmail" type="email" readonly /></div><div class="form-group"><label class="form-label">Phone</label><input class="form-input" id="reviewPhone" /></div><div class="form-group"><label class="form-label">Section</label><select class="form-select" id="reviewSection" required><option value="">Select section</option><option value="Nursery">Nursery</option><option value="Primary">Primary</option><option value="Daycare">Daycare</option></select></div><div class="form-group"><label class="form-label">Assign Class</label><select class="form-select" id="reviewClassId" required><option value="">Select a class</option></select><p class="text-muted text-xs" id="reviewClassHint">Classes depend on the selected section.</p></div><div id="reviewError" class="alert alert-danger mb-md" style="display:none"></div></div><div class="modal-footer"><button class="btn btn-secondary" data-cm-close>Close</button><button class="btn btn-danger" id="btnReject" style="display:none">Reject</button><button class="btn btn-secondary" id="btnDeactivate" style="display:none">Deactivate</button><button class="btn btn-secondary" id="btnActivate" style="display:none">Activate</button><button class="btn btn-primary" id="btnApprove">Approve</button></div></div>`;
+    document.body.appendChild(reviewModal);
+    document.body.classList.add("modal-open");
+    const reviewStaffId = document.getElementById("reviewStaffId");
+    const reviewFullName = document.getElementById("reviewFullName");
+    const reviewEmail = document.getElementById("reviewEmail");
+    const reviewPhone = document.getElementById("reviewPhone");
+    const reviewSection = document.getElementById("reviewSection");
+    const reviewClassId = document.getElementById("reviewClassId");
+    const reviewClassHint = document.getElementById("reviewClassHint");
+    const reviewError = document.getElementById("reviewError");
+    const btnReject = document.getElementById("btnReject");
+    const btnDeactivate = document.getElementById("btnDeactivate");
+    const btnActivate = document.getElementById("btnActivate");
+    const btnApprove = document.getElementById("btnApprove");
+    let allClasses = [];
+    let currentStaff = null;
+    let submitPending = false;
+    function statusBadge(status) { const m = { profile_incomplete: "Profile Incomplete", pending_approval: "Pending Approval", approved: "Approved", rejected: "Rejected", deactivated: "Deactivated" }[status] || { label: status }; return `<span class="badge badge-${m.label.toLowerCase().replace(' ', '-')}">${m.label}</span>`; }
+    function loadClassesForSection(section) { const filtered = allClasses.filter(c => section === "Nursery" ? c.levelGroup === "nursery" : section === "Daycare" ? c.levelGroup === "daycare" : section === "Primary" ? /^Primary/i.test(String(c.level || c.name || "")) : false); reviewClassId.innerHTML = '<option value="">Select a class</option>' + filtered.map(c => `<option value="${c.classId}">${escapeHtml(c.name)}${c.arm ? " " + escapeHtml(c.arm) : ""}</option>`).join(""); reviewClassId.disabled = filtered.length === 0; reviewClassHint.textContent = filtered.length ? "Choose the class to assign." : "No classes for this section yet."; }
+    reviewSection.addEventListener("change", () => loadClassesForSection(reviewSection.value));
+    function openReview(staff) { currentStaff = staff; reviewStaffId.value = staff.staffId; reviewFullName.value = `${staff.firstName || ""} ${staff.lastName || ""}`.trim() || staff.email; reviewEmail.value = staff.email || ""; reviewPhone.value = staff.phone || ""; reviewSection.value = staff.section || ""; loadClassesForSection(staff.section || ""); if (staff.classId) Array.from(reviewClassId.options).forEach(o => { o.selected = (o.value === staff.classId); }); const s2 = staff.status; const isPending = s2 === "pending_approval"; const isIncomplete = s2 === "profile_incomplete"; const isApproved = s2 === "approved"; const isRejected = s2 === "rejected"; const isDeactivated = s2 === "deactivated"; const editable = isPending || isIncomplete; reviewPhone.readOnly = !editable; reviewSection.disabled = !editable; reviewClassId.disabled = !editable || (reviewClassId.options.length <= 1); btnReject.style.display = (isPending || isIncomplete || isApproved) ? "inline-block" : "none"; btnApprove.style.display = (isPending || isIncomplete) ? "inline-block" : "none"; btnDeactivate.style.display = isApproved ? "inline-block" : "none"; btnActivate.style.display = (isRejected || isDeactivated) ? "inline-block" : "none"; reviewError.style.display = "none"; }
+    function closeReview() { reviewModal.classList.remove("active"); document.body.classList.remove("modal-open"); currentStaff = null; }
+    reviewModal.querySelectorAll("[data-cm-close]").forEach((b) => b.addEventListener("click", closeReview));
+    reviewModal.querySelector("[data-cm-overlay]").addEventListener("click", closeReview);
+    btnApprove.addEventListener("click", async () => { if (submitPending) return; const section = reviewSection.value; const classId = reviewClassId.value; if (!["Nursery", "Primary", "Daycare"].includes(section)) { reviewError.textContent = "Select a valid section."; reviewError.style.display = "block"; return; } if (!classId) { reviewError.textContent = "Assign a class."; reviewError.style.display = "block"; return; } submitPending = true; btnApprove.disabled = true; btnApprove.textContent = "Approving…"; const { approveStaff } = await import("../../assets/js/auth.js"); try { await approveStaff(currentStaff.staffId, { section, classId }); toast("Staff member approved.", "success"); closeReview(); renderAll(); renderPending(); } catch (err) { reviewError.textContent = err.message || "Could not approve staff member."; reviewError.style.display = "block"; } finally { submitPending = false; btnApprove.disabled = false; btnApprove.textContent = "Approve"; } });
+
+    btnReject.addEventListener("click", async () => { if (submitPending) return; const confirmed = await showConfirm(`Reject the application for ${escapeHtml(currentStaff.firstName || "")} ${escapeHtml(currentStaff.lastName || "")}?`, { title: "Reject Staff Application", confirmLabel: "Reject", cancelLabel: "Cancel" }); if (!confirmed) return; submitPending = true; btnReject.disabled = true; btnReject.textContent = "Rejecting…"; const { rejectStaff } = await import("../../assets/js/auth.js"); try { await rejectStaff(currentStaff.staffId, "Rejected by administrator during review."); toast("Staff application rejected.", "success"); closeReview(); renderAll(); renderPending(); } catch (err) { reviewError.textContent = err.message || "Could not reject staff member."; reviewError.style.display = "block"; } finally { submitPending = false; btnReject.disabled = false; btnReject.textContent = "Reject"; } });
+
+    btnDeactivate.addEventListener("click", async () => { if (submitPending) return; submitPending = true; btnDeactivate.disabled = true; btnDeactivate.textContent = "Deactivating…"; const { setStaffActive } = await import("../../assets/js/auth.js"); try { await setStaffActive(currentStaff.staffId, false); toast("Account deactivated.", "success"); closeReview(); renderAll(); renderPending(); } catch (err) { reviewError.textContent = err.message || "Could not deactivate account."; reviewError.style.display = "block"; } finally { submitPending = false; btnDeactivate.disabled = false; btnDeactivate.textContent = "Deactivate"; } });
+
+    btnActivate.addEventListener("click", async () => { if (submitPending) return; submitPending = true; btnActivate.disabled = true; btnActivate.textContent = "Activating…"; const { setStaffActive } = await import("../../assets/js/auth.js"); try { await setStaffActive(currentStaff.staffId, true); toast("Account activated.", "success"); closeReview(); renderAll(); renderPending(); } catch (err) { reviewError.textContent = err.message || "Could not activate account."; reviewError.style.display = "block"; } finally { submitPending = false; btnActivate.disabled = false; btnActivate.textContent = "Activate"; } });
+
+    async function renderAll() {
+      const { list } = await import("../../assets/js/data/store.js");
+      const staffList = list("staff");
+      const tbody = document.getElementById("allStaffBody");
+      if (!tbody) return;
+      tbody.innerHTML = staffList.map(s => `
         <tr>
-          <td>${s.firstName} ${s.lastName}</td>
-          <td><span class="badge text-capitalize">${s.role}</span></td>
-          <td>${s.email}</td>
-          <td>${s.phone}</td>
-          <td>${s.active ? '<span class="badge badge-success">Active</span>' : '<span class="badge badge-danger">Inactive</span>'}</td>
+          <td>${escapeHtml(`${s.firstName || ""} ${s.lastName || ""}`.trim() || s.email)}</td>
+          <td>${escapeHtml(s.email || "")}</td>
+          <td>${escapeHtml(s.section || "—")}</td>
+          <td>${escapeHtml(s.classId || "—")}</td>
+          <td><span class="badge text-capitalize">${escapeHtml(s.role || "staff")}</span></td>
+          <td>${statusBadge(s.status)}</td>
         </tr>
       `).join("");
     }
-    document.addEventListener("DOMContentLoaded", () => {
-      render(); whenDataReady().then(render); query("#search").addEventListener("input", render);
-      query("#save").addEventListener("click", () => {
-        staffService.create({
-          firstName: query("#firstName").value,
-          lastName: query("#lastName").value,
-          email: query("#email").value,
-          phone: query("#phone").value,
-          role: query("#role").value,
-          active: true
-        });
-        toast("Staff added", "success");
-        document.getElementById("addStaffModal").classList.remove("active");
-        render();
-      });
+
+    async function renderPending() {
+      const { list } = await import("../../assets/js/data/store.js");
+      const staffList = list("staff").filter(s => s.status === "pending_approval" || s.status === "profile_incomplete");
+      const tbody = document.getElementById("pendingBody");
+      if (!tbody) return;
+      if (!staffList.length) { tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted">No pending applications.</td></tr>`; return; }
+      tbody.innerHTML = staffList.map(s => `
+        <tr>
+          <td>${escapeHtml(`${s.firstName || ""} ${s.lastName || ""}`.trim() || s.email)}</td>
+          <td>${escapeHtml(s.email || "")}</td>
+          <td>${escapeHtml(s.phone || "—")}</td>
+          <td>${escapeHtml(s.section || "—")}</td>
+          <td>${escapeHtml(s.classId || "—")}</td>
+          <td>${statusBadge(s.status)}</td>
+          <td><button class="btn btn-primary btn-sm" onclick="window.reviewStaff('${escapeHtml(JSON.stringify(s).replace(/'/g, "&#39;"))}')"><i class="fas fa-user-edit"></i> Review</button></td>
+        </tr>
+      `).join("");
+    }
+
+    window.reviewStaff = (json) => { openReview(JSON.parse(json)); };
+
+    document.addEventListener("DOMContentLoaded", async () => {
+      whenDataReady().then(() => { allClasses = classService.getAll(); renderAll(); renderPending(); });
     });
   </script>
 </body>

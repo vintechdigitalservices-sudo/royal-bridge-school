@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <script src="../../assets/js/theme-init.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#2340B0" />
+  <title>Staff Dashboard — ROYALBRIDGE INT'L SCHOOL</title>
+  <link rel="stylesheet" href="../../assets/css/style.css" />
+  <link rel="stylesheet" href="../../assets/css/components.css" />
+  <link rel="stylesheet" href="../../assets/css/responsive.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+</head>
+
+<body>
+  <div class="app-shell">
+    <div class="sidebar-overlay" data-sidebar-overlay></div>
+    <aside class="sidebar" data-sidebar>
+      <div class="flex items-center justify-between p-md" style="border-bottom:1px solid var(--border)">
+        <div class="flex items-center gap-md">
+          <img class="brand-logo" data-brand-logo alt="ROYALBRIDGE INT'L SCHOOL logo" />
+          <div><div class="font-semibold" data-brand-name>ROYALBRIDGE INT'L SCHOOL</div><div class="text-muted text-xs">Staff</div></div>
+        </div>
+        <button class="btn btn-ghost btn-icon hide-desktop" data-sidebar-close><i class="fas fa-times"></i></button>
+      </div>
+      <nav class="flex-1" data-sidebar-nav></nav>
+      <div class="p-md" style="border-top:1px solid var(--border)"><button class="btn btn-ghost w-full" data-logout><i class="fas fa-sign-out-alt"></i> Logout</button></div>
+    </aside>
+    <div class="main">
+      <header class="topbar">
+        <div class="flex items-center gap-md">
+          <button class="btn btn-ghost btn-icon hide-desktop" data-sidebar-toggle><i class="fas fa-bars"></i></button>
+          <h1 class="card-title">Dashboard</h1>
+        </div>
+        <div class="flex items-center gap-md" data-user-info></div>
+      </header>
+      <main class="content">
+        <section id="statusBanner" class="card mb-lg" style="display:none">
+          <div class="card-body">
+            <div class="flex items-start gap-md">
+              <div class="flex-shrink-0"><i class="fas fa-clock" style="color:var(--warning);font-size:1.25rem"></i></div>
+              <div>
+                <h3 class="card-title" style="font-size:1rem;margin:0">Account Awaiting Approval</h3>
+                <p class="text-muted text-sm" id="statusMessage" style="margin:0"></p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="card mb-lg">
+          <div class="card-body">
+            <div id="staffWelcome"></div>
+          </div>
+        </section>
+
+        <section class="grid grid-stats mb-lg">
+          <article class="stat-card">
+            <span class="stat-label">Role</span>
+            <span class="stat-value" id="statRole">—</span>
+          </article>
+          <article class="stat-card">
+            <span class="stat-label">Section</span>
+            <span class="stat-value" id="statSection">—</span>
+          </article>
+          <article class="stat-card">
+            <span class="stat-label">Assigned Class</span>
+            <span class="stat-value" id="statClass">—</span>
+          </article>
+          <article class="stat-card">
+            <span class="stat-label">Account Status</span>
+            <span class="stat-value" id="statStatus">—</span>
+          </article>
+        </section>
+
+        <section class="card mb-lg">
+          <div class="card-header">
+            <h2 class="card-title">Getting Started</h2>
+          </div>
+          <div class="card-body">
+            <ul class="text-muted text-sm" style="list-style:disc;padding-left:1.25rem">
+              <li>Your name, section and class are shown above, as approved by the administrator.</li>
+              <li>While your account is pending approval, dashboard functions are restricted.</li>
+              <li>Coming soon: Students, Results, Announcements and Profile modules.</li>
+            </ul>
+          </div>
+        </section>
+
+        <section class="card mb-lg">
+          <div class="card-header">
+            <h2 class="card-title">Latest Announcements</h2>
+          </div>
+          <div class="card-body" id="staffAnnouncements"><p class="text-muted">Loading…</p></div>
+        </section>
+      </main>
+    </div>
+    <nav class="bottom-nav" data-bottom-nav></nav>
+  </div>
+
+  <script type="module">
+    import { initApp } from "../../assets/js/app.js";
+    import { getCurrentUser, logout } from "../../assets/js/auth.js";
+    import { ROLES, STAFF_STATUS } from "../../assets/js/config.js";
+    import { announcementService } from "../../assets/js/services.js";
+    import { escapeHtml } from "../../assets/js/ui.js";
+    import { whenDataReady } from "../../assets/js/data/store.js";
+
+    initApp();
+
+    const user = getCurrentUser();
+    if (!user || (user.role !== ROLES.STAFF && user.role !== ROLES.CLASS_TEACHER)) {
+      window.location.href = "../../index.html";
+    }
+
+    const welcomeEl = document.getElementById("staffWelcome");
+    const statRole = document.getElementById("statRole");
+    const statSection = document.getElementById("statSection");
+    const statClass = document.getElementById("statClass");
+    const statStatus = document.getElementById("statStatus");
+    const statusBanner = document.getElementById("statusBanner");
+    const statusMessage = document.getElementById("statusMessage");
+    const annEl = document.getElementById("staffAnnouncements");
+
+    const staff = user.staff || {};
+    const fullName = staff.firstName && staff.lastName
+      ? `${staff.firstName} ${staff.lastName}`
+      : (user.fullName || user.email || "Staff Member");
+
+    welcomeEl.innerHTML = `<div class="font-semibold" style="font-size:1.25rem">Welcome, ${escapeHtml(fullName)}</div>`;
+
+    statRole.textContent = (user.role === ROLES.CLASS_TEACHER ? "Class Teacher" : "Staff Member");
+    statSection.textContent = staff.section || "Not assigned";
+    statClass.textContent = staff.classId || "Not assigned";
+    statStatus.textContent = (staff.status || user.status || "—").replace(/_/g, " ");
+
+    const status = staff.status || user.status;
+    if (status === STAFF_STATUS.PROFILE_INCOMPLETE) {
+      statusBanner.style.display = "block";
+      statusMessage.textContent = "Complete your profile to submit it for administrator approval.";
+    } else if (status === STAFF_STATUS.PENDING_APPROVAL) {
+      statusBanner.style.display = "block";
+      statusMessage.textContent = "Your profile has been submitted successfully. Your account is awaiting administrator approval. You will receive access to your staff dashboard once the administrator reviews and approves your application.";
+    } else if (status === STAFF_STATUS.REJECTED) {
+      statusBanner.style.display = "block";
+      statusBanner.querySelector(".card-body").style.background = "rgba(220, 38, 38, 0.08)";
+      statusMessage.innerHTML = `<strong style="color:var(--danger)">Account rejected.</strong> Your application was not approved. Contact the administrator for details.`;
+    } else if (status === STAFF_STATUS.DEACTIVATED) {
+      statusBanner.style.display = "block";
+      statusBanner.querySelector(".card-body").style.background = "rgba(100, 116, 139, 0.1)";
+      statusMessage.innerHTML = `<strong style="color:var(--muted)">Access denied.</strong> Your account has been deactivated. Contact the administrator.`;
+    }
+
+    whenDataReady().then(() => {
+      const items = (announcementService.getPublished ? announcementService.getPublished() : announcementService.getAll()).slice(0, 5);
+      if (annEl) {
+        annEl.innerHTML = items.length
+          ? items.map(function (a) { return '<div class="mb-md"><div class="font-medium">' + escapeHtml(a.title) + '</div><div class="text-muted text-sm">' + escapeHtml(a.message || "") + '</div></div>'; }).join("")
+          : '<p class="text-muted">No announcements.</p>';
+      }
+    });
+
+    document.querySelectorAll("[data-logout]").forEach((b) => b.addEventListener("click", (e) => { e.preventDefault(); logout(); }));
+  </script>
+  </div>
+</body>
+</html>

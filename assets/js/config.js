@@ -14,8 +14,37 @@ export const ROLES = {
   ADMIN: "admin",
   BURSAR: "bursar",
   TEACHER: "teacher",
-  STUDENT: "student"
+  STUDENT: "student",
+  STAFF: "staff",
+  CLASS_TEACHER: "class_teacher"
 };
+
+export const STAFF_STATUS = {
+  PROFILE_INCOMPLETE: "profile_incomplete",
+  PENDING_APPROVAL: "pending_approval",
+  APPROVED: "approved",
+  REJECTED: "rejected",
+  DEACTIVATED: "deactivated"
+};
+
+export const STAFF_SECTIONS = ["Nursery", "Primary", "Daycare"];
+
+/**
+ * Maps a staff section to the Firestore classes that belong to it.
+ * Secondary-school classes (JSS/SS) are deliberately excluded in Phase 1.
+ */
+export function sectionClassFilter(section) {
+  switch (section) {
+    case "Nursery":
+      return (c) => c.levelGroup === "nursery";
+    case "Daycare":
+      return (c) => c.levelGroup === "daycare";
+    case "Primary":
+      return (c) => c.levelGroup === "basic" && /^Primary/i.test(String(c.level || c.name || ""));
+    default:
+      return () => false;
+  }
+}
 
 export const CURRENT_SESSION = "2026/2027";
 export const CURRENT_TERM = "First Term";

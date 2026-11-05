@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <script src="../assets/js/theme-init.js"></script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#2340B0" />
+  <title>Create Staff Account — ROYALBRIDGE INT'L SCHOOL</title>
+  <link rel="stylesheet" href="../assets/css/style.css" />
+  <link rel="stylesheet" href="../assets/css/components.css" />
+  <link rel="stylesheet" href="../assets/css/responsive.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" />
+</head>
+
+<body>
+  <div class="flex items-center justify-center p-md auth-screen">
+    <div class="card" style="width: 100%; max-width: 420px">
+      <div class="text-center mb-lg">
+        <div class="mb-md flex items-center justify-center">
+          <img src="../assets/images/logo.jpg" alt="ROYALBRIDGE INT'L SCHOOL logo" style="width: 72px; height: 72px; object-fit: contain" />
+        </div>
+        <h1 class="card-title" data-brand-name>ROYALBRIDGE INT'L SCHOOL</h1>
+        <p class="text-muted" data-brand-motto>Inspiring Excellence</p>
+      </div>
+
+      <h2 class="card-title mb-md">Create Staff Account</h2>
+      <p class="text-muted text-sm mb-lg">Join the RoyalBridge team. Your account will be reviewed by the administrator before you can access the staff dashboard.</p>
+
+      <form id="registerForm">
+        <div class="form-group">
+          <label class="form-label" for="fullName">Full Name</label>
+          <input class="form-input" type="text" id="fullName" required placeholder="e.g. Chinedu Eze" autocomplete="name" autocapitalize="words" />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="regEmail">Email Address</label>
+          <input class="form-input" type="email" id="regEmail" required placeholder="you@school.com" autocomplete="email" autocapitalize="none" />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="regPassword">Password</label>
+          <input class="form-input" type="password" id="regPassword" required placeholder="At least 8 characters" autocomplete="new-password" autocapitalize="none" />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="regConfirm">Confirm Password</label>
+          <input class="form-input" type="password" id="regConfirm" required placeholder="Type your password again" autocomplete="new-password" autocapitalize="none" />
+        </div>
+        <div id="regError" class="alert alert-danger mb-md" style="display: none"></div>
+        <button class="btn btn-primary w-full" id="btnRegSubmit" type="submit">
+          <span class="btn-label">Create Account</span>
+          <span class="btn-spinner" style="display:none"><i class="fas fa-circle-notch fa-spin"></i></span>
+        </button>
+      </form>
+
+      <div class="text-center mt-md">
+        <p class="text-muted text-sm">Already have an account?</p>
+        <a href="../index.html" class="btn btn-ghost w-full" type="button">Back to Login</a>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initApp } from "../../assets/js/app.js";
+    import { initPasswordToggles } from "../../assets/js/forms.js";
+    import { registerStaff } from "../../assets/js/auth.js";
+    import { toast } from "../../assets/js/notifications.js";
+
+    initApp();
+    initPasswordToggles();
+
+    const form = document.getElementById("registerForm");
+    const error = document.getElementById("regError");
+    const btn = document.getElementById("btnRegSubmit");
+    const spinner = btn.querySelector(".btn-spinner");
+    const label = btn.querySelector(".btn-label");
+    let submitting = false;
+
+    function setLoading(loading) {
+      if (loading) {
+        btn.disabled = true;
+        btn.setAttribute("aria-busy", "true");
+        spinner.style.display = "inline";
+        label.textContent = "Creating account…";
+      } else {
+        btn.disabled = false;
+        btn.removeAttribute("aria-busy");
+        spinner.style.display = "none";
+        label.textContent = "Create Account";
+      }
+    }
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      if (submitting) return;
+      const fullName = document.getElementById("fullName").value.trim();
+      const email = document.getElementById("regEmail").value.trim();
+      const password = document.getElementById("regPassword").value;
+      const confirm = document.getElementById("regConfirm").value;
+
+      // Client-side validation (server-side validation also runs in registerStaff)
+      if (!fullName || !email || !password || !confirm) {
+        error.textContent = "All fields are required.";
+        error.style.display = "block";
+        return;
+      }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        error.textContent = "Enter a valid email address.";
+        error.style.display = "block";
+        return;
+      }
+      if (password !== confirm) {
+        error.textContent = "The two passwords do not match.";
+        error.style.display = "block";
+        return;
+      }
+      if (!password || password.length < 8) {
+        error.textContent = "Password must be at least 8 characters.";
+        error.style.display = "block";
+        return;
+      }
+
+      submitting = true;
+      setLoading(true);
+      error.style.display = "none";
+
+      try {
+        await registerStaff({ fullName, email, password });
+        toast("Account created. Please complete your profile.", "success");
+        window.location.href = "./profile-complete.html";
+      } catch (err) {
+        error.textContent = err.message || "Registration failed. Please try again.";
+        error.style.display = "block";
+      } finally {
+        submitting = false;
+        setLoading(false);
+      }
+    });
+  </script>
+</body>
+
+</html>

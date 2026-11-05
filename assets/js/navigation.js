@@ -62,6 +62,11 @@ function getNavItems(role) {
       { href: "announcements.html", icon: "fa-bullhorn", label: "Announcements" }
     ];
   }
+  if (role === "staff" || role === "class_teacher") {
+    return [
+      { href: "dashboard.html", icon: "fa-tachometer-alt", label: "Dashboard" }
+    ];
+  }
   return [];
 }
 

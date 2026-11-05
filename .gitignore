@@ -19,3 +19,14 @@ desktop.ini
 
 # Logs
 *.log
+
+# Local inspection artifacts
+filelist.txt
+inspect-out.txt
+
+# Local validation scripts
+*.check-syntax.js
+*.validate.js
+*.validate-html.js
+*.final-check.js
+

@@ -35,15 +35,17 @@ python -m http.server 8080
 
 Then open http://localhost:8080/.
 
-## Demo credentials
-Password for all accounts: `password123`
+## Accounts (Phase 1)
 
-| Role    | Email                          |
-|---------|--------------------------------|
-| Admin   | rayabridgeacademy@gmail.com     |
-| Bursar  | bursar@royalbridge.edu.ng      |
-| Teacher | teacher1@royalbridge.edu.ng    |
-| Student | student1@ / student2@royalbridge.edu.ng |
+**Administrator (provisioned via Firebase Auth, never hardcoded):**
+- Email: `royalbridge@gmail.com`
+- Password: set by the administrator when provisioning (`ADMIN_PASSWORD` env var of the seed script). Never stored in source code.
+
+**Staff:** self-register at the login page ("Staff Login" → "Create Staff Account"), then complete their profile; the administrator approves each account before dashboard access.
+
+**Student:** log in with their permanent Admission Number and Scratch Card PIN on the "Student Login" tab.
+
+Demo/obsolete accounts (`rayabridgeacademy@gmail.com`, `password123` for all roles) have been removed.
 
 ## Data
 Firestore is the **source of truth**. The client hydrates all collections into an in-memory mirror

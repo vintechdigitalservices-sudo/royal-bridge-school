@@ -1,0 +1,135 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ------------------------------------------------------------------
+    // Helpers
+    // ------------------------------------------------------------------
+    function isAuth() {
+      return request.auth != null;
+    }
+    function isAdmin() {
+      return request.auth.token.role == 'admin';
+    }
+    function isSelfUid(uid) {
+      return request.auth.uid == uid;
+    }
+    // Fields a non-admin staff member may change on their own profile during
+    // onboarding. Role, status transitions and administrative flags remain
+    // server/administrator-controlled.
+    function selfUpdatableKeys() {
+      return ['phone', 'section', 'classId'];
+    }
+    function updatableByStaff(keys) {
+      return keys.difference(selfUpdatableKeys()).size() == 0;
+    }
+    function onlyPendingApprovalTransition(diff) {
+      return !('status' in diff.changedKeys()) || diff.after.status == 'pending_approval';
+    }
+
+    // ------------------------------------------------------------------
+    // Public identity resolution (needed before sign-in)
+    // ------------------------------------------------------------------
+    // Admission numbers are printed on student ID cards; the secret is the
+    // Scratch Card PIN, verified by Firebase Auth, not by this document.
+    match /studentAccess/{key} {
+      allow get: if true;
+      allow list: if false;
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ------------------------------------------------------------------
+    // users — portal profile; role is resolved here, never chosen by client
+    // ------------------------------------------------------------------
+    match /users/{uid} {
+      allow read: if isAuth() && (isAdmin() || isSelfUid(uid));
+      // Staff self-registration: create only your own doc, as a staff applicant.
+      allow create: if isAuth()
+        && isSelfUid(uid)
+        && request.resource.data.role == 'staff'
+        && request.resource.data.status == 'profile_incomplete';
+      allow update: if isAuth() && (
+        isAdmin()
+        || (isSelfUid(uid)
+            && !(['role'].any(k => k in request.resource.data.diff(resource.data).changedKeys))
+            && (updatableByStaff(request.resource.data.diff(resource.data).changedKeys)
+                || (request.resource.data.diff(resource.data).changedKeys().size() == 1
+                    && onlyPendingApprovalTransition(request.resource.data.diff(resource.data))))
+            )
+        )
+      );
+      allow delete: if isAdmin();
+    }
+
+    // ------------------------------------------------------------------
+    // staff — staff profiles
+    // ------------------------------------------------------------------
+    match /staff/{staffId} {
+      allow read: if isAuth() && (isAdmin() || request.auth.uid == staffId);
+      allow create: if isAuth() && request.auth.uid == staffId
+        && request.resource.data.status == 'profile_incomplete';
+      allow update: if isAuth() && (
+        isAdmin()
+        || (request.auth.uid == staffId
+            && !(['role'].any(k => k in request.resource.data.diff(resource.data).changedKeys))
+            && (updatableByStaff(request.resource.data.diff(resource.data).changedKeys)
+                || (request.resource.data.diff(resource.data).changedKeys().size() == 1
+                    && onlyPendingApprovalTransition(request.resource.data.diff(resource.data))))
+            )
+        )
+      );
+      allow delete: if isAdmin();
+    }
+
+    // ------------------------------------------------------------------
+    // teacherAssignments — authoritative class assignment (admin writes)
+    // ------------------------------------------------------------------
+    match /teacherAssignments/{assignmentId} {
+      allow read: if isAuth();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ------------------------------------------------------------------
+    // students — own record only; teachers read assigned classes
+    // ------------------------------------------------------------------
+    match /students/{studentId} {
+      allow read: if isAuth();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ------------------------------------------------------------------
+    // classes — authenticated read; admin write
+    // ------------------------------------------------------------------
+    match /classes/{classId} {
+      allow read: if isAuth();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ------------------------------------------------------------------
+    // announcements — authenticated read; admin write
+    // ------------------------------------------------------------------
+    match /announcements/{annId} {
+      allow read: if isAuth();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ------------------------------------------------------------------
+    // payments — admin/bursar write; students read own receipts
+    // ------------------------------------------------------------------
+    match /payments/{paymentId} {
+      allow read: if isAuth() && (
+        isAdmin()
+        || exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.studentId == resource.data.studentId
+      );
+      allow create, update, delete: if isAdmin();
+    }
+
+    // ------------------------------------------------------------------
+    // Default: deny everything else
+    // ------------------------------------------------------------------
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

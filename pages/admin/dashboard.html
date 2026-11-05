@@ -84,6 +84,29 @@
           </div>
         </section>
 
+        <section class="card mb-lg">
+          <div class="card-header">
+            <div>
+              <h2 class="card-title">Pending Staff Approvals</h2>
+              <p class="card-subtitle">New staff applications awaiting administrator review.</p>
+            </div>
+          </div>
+          <div class="table-container">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Full Name</th>
+                  <th>Email</th>
+                  <th>Section</th>
+                  <th>Requested Class</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="pendingStaffBody"></tbody>
+            </table>
+          </div>
+        </section>
+
         <section class="card">
           <div class="card-header">
             <div>
@@ -120,9 +143,30 @@
     import { formatCurrency, formatDate } from "../../assets/js/utils.js";
     import { whenDataReady, isReady } from "../../assets/js/data/store.js";
     import { escapeHtml, loadingRow } from "../../assets/js/ui.js";
+    import { STAFF_STATUS } from "../../assets/js/config.js";
 
     initApp();
     requireRole(ROLES.ADMIN);
+
+    async function renderPendingStaff() {
+      const { list } = await import("../../assets/js/data/store.js");
+      const staffList = list("staff").filter(s => s.status === STAFF_STATUS.PENDING_APPROVAL || s.status === STAFF_STATUS.PROFILE_INCOMPLETE);
+      const tbody = document.getElementById("pendingStaffBody");
+      if (!tbody) return;
+      if (!staffList.length) {
+        tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted">No pending staff applications.</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = staffList.map(s => `
+        <tr>
+          <td>${escapeHtml(`${s.firstName || ""} ${s.lastName || ""}`.trim() || s.email)}</td>
+          <td>${escapeHtml(s.email || "")}</td>
+          <td>${escapeHtml(s.section || "—")}</td>
+          <td>${escapeHtml(s.classId || "—")}</td>
+          <td>${escapeHtml(s.status || "—").replace(/_/g, " ")}</td>
+        </tr>
+      `).join("");
+    }
 
     function render() {
       const tbody = document.querySelector("[data-recent-payments]");
@@ -153,7 +197,12 @@
       `).join("") || `<tr><td colspan="6" class="text-center text-muted">No payments recorded</td></tr>`;
     }
 
-    document.addEventListener("DOMContentLoaded", () => { render(); whenDataReady().then(render); });
+    document.addEventListener("DOMContentLoaded", () => {
+      render();
+      whenDataReady().then(render).then(() => {
+        renderPendingStaff();
+      });
+    });
   </script>
 </body>
 

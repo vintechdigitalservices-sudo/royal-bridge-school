@@ -31,27 +31,61 @@
         <p class="text-muted" data-brand-motto>Inspiring Excellence</p>
       </div>
 
-      <form id="loginForm">
+      <!-- Login tabs -->
+      <div class="login-tabs">
+        <button class="tab-btn active" data-tab="student" type="button">
+          <i class="fas fa-user-graduate"></i> Student Login
+        </button>
+        <button class="tab-btn" data-tab="staff" type="button">
+          <i class="fas fa-user-tie"></i> Staff Login
+        </button>
+      </div>
+
+      <!-- Student Login Form -->
+      <form id="loginFormStudent" class="auth-form active">
         <div class="form-group">
-          <label class="form-label" for="email">Email or Admission Number</label>
-          <input class="form-input" type="text" id="email" required placeholder="Email, or e.g. RBI/2026/001" autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="next" />
+          <label class="form-label" for="studentAdmission">Admission Number</label>
+          <input class="form-input" type="text" id="studentAdmission" required placeholder="e.g. RBI/2026/001" autocomplete="username" autocapitalize="characters" autocorrect="off" spellcheck="false" enterkeyhint="next" />
         </div>
         <div class="form-group">
-          <label class="form-label" for="password">Password or Scratch Card PIN</label>
-          <input class="form-input" type="password" id="password" required placeholder="Enter password or PIN" autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="go" />
+          <label class="form-label" for="studentPin">Scratch Card PIN</label>
+          <input class="form-input" type="password" id="studentPin" required placeholder="Enter scratch card PIN" autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="go" />
+        </div>
+        <div id="loginErrorStudent" class="alert alert-danger mb-md" style="display: none"></div>
+        <button class="btn btn-primary w-full" id="btnStudentLogin" type="submit">
+          <span class="btn-label">Login</span>
+          <span class="btn-spinner" style="display:none"><i class="fas fa-circle-notch fa-spin"></i></span>
+        </button>
+      </form>
+
+      <!-- Staff Login Form -->
+      <form id="loginFormStaff" class="auth-form" style="display: none">
+        <div class="form-group">
+          <label class="form-label" for="staffEmail">Email Address</label>
+          <input class="form-input" type="email" id="staffEmail" required placeholder="you@school.com" autocomplete="email" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="next" />
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="staffPassword">Password</label>
+          <input class="form-input" type="password" id="staffPassword" required placeholder="Enter your password" autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="go" />
         </div>
         <div class="flex items-center justify-between mb-md">
           <label class="flex items-center gap-sm text-sm text-muted">
-            <input type="checkbox" id="remember" />
+            <input type="checkbox" id="staffRemember" />
             Remember me
           </label>
           <a href="pages/forgot-password.html" class="text-sm text-primary">Forgot password?</a>
         </div>
-        <div id="loginError" class="alert alert-danger mb-md" style="display: none"></div>
-        <button class="btn btn-primary w-full" type="submit">
-          <i class="fas fa-sign-in-alt"></i>
-          Login
+        <div id="loginErrorStaff" class="alert alert-danger mb-md" style="display: none"></div>
+        <button class="btn btn-primary w-full" id="btnStaffLogin" type="submit">
+          <span class="btn-label">Login</span>
+          <span class="btn-spinner" style="display:none"><i class="fas fa-circle-notch fa-spin"></i></span>
         </button>
+        <div class="text-center mt-md">
+          <p class="text-muted text-sm">New to RoyalBridge?</p>
+          <button class="btn btn-secondary w-full" id="btnCreateStaffAccount" type="button">
+            <i class="fas fa-user-plus"></i> Create Staff Account
+          </button>
+        </div>
       </form>
 
       <div class="text-center mt-md">
@@ -63,58 +97,129 @@
   </div>
 
   <script type="module">
-    import { login, getCurrentUser, redirectByRole } from "./assets/js/auth.js";
+    import { login, getCurrentUser, routeStaffLogin } from "./assets/js/auth.js";
     import { initApp } from "./assets/js/app.js";
+    import { initPasswordToggles } from "./assets/js/forms.js";
 
     initApp();
+    initPasswordToggles();
 
-    function initLoginForm() {
+    async function initLoginForm() {
       const u = getCurrentUser();
       if (u && u.role) {
-        redirectByRole(u.role);
+        if (u.role === "student") {
+          window.location.href = "./pages/student/dashboard.html";
+          return;
+        }
+        if (u.role === "admin" || u.role === "bursar" || u.role === "teacher") {
+          const { redirectByRole } = await import("./assets/js/auth.js");
+          redirectByRole(u.role);
+          return;
+        }
+        routeStaffLogin(u);
         return;
       }
-      const form = document.getElementById("loginForm");
-      const error = document.getElementById("loginError");
-      const submit = form.querySelector('button[type="submit"]');
-      let submitting = false;
-      form.addEventListener("submit", async (e) => {
+      const studentForm = document.getElementById("loginFormStudent");
+      const staffForm = document.getElementById("loginFormStaff");
+      const studentTab = document.querySelector('[data-tab="student"]');
+      const staffTab = document.querySelector('[data-tab="staff"]');
+      const studentError = document.getElementById("loginErrorStudent");
+      const staffError = document.getElementById("loginErrorStaff");
+      const btnStudent = document.getElementById("btnStudentLogin");
+      const btnStaff = document.getElementById("btnStaffLogin");
+      const btnCreate = document.getElementById("btnCreateStaffAccount");
+
+      const studentSpinner = btnStudent.querySelector(".btn-spinner");
+      const studentLabel = btnStudent.querySelector(".btn-label");
+      const staffSpinner = btnStaff.querySelector(".btn-spinner");
+      const staffLabel = btnStaff.querySelector(".btn-label");
+      let studentSubmitting = false;
+      let staffSubmitting = false;
+      function setButtonLoading(btn, loading, spinner, label) {
+        if (!btn) return;
+        if (loading) {
+          btn.disabled = true;
+          btn.setAttribute("aria-busy", "true");
+          spinner.style.display = "inline";
+          label.textContent = "Logging in…";
+        } else {
+          btn.disabled = false;
+          btn.removeAttribute("aria-busy");
+          spinner.style.display = "none";
+          label.textContent = "Login";
+        }
+      }
+
+      function showError(el, msg) {
+        if (!msg) { el.style.display = "none"; el.textContent = ""; return; }
+        el.textContent = msg;
+        el.style.display = "block";
+      }
+
+      function switchTab(tab) {
+        const isStudent = tab === "student";
+        studentTab.classList.toggle("active", isStudent);
+        staffTab.classList.toggle("active", !isStudent);
+        studentForm.classList.toggle("active", isStudent);
+        studentForm.style.display = isStudent ? "block" : "none";
+        staffForm.classList.toggle("active", !isStudent);
+        staffForm.style.display = isStudent ? "none" : "block";
+        showError(studentError, "");
+        showError(staffError, "");
+      }
+
+      studentTab.addEventListener("click", () => switchTab("student"));
+      staffTab.addEventListener("click", () => switchTab("staff"));
+
+      // ---- Student login ----
+      studentForm.addEventListener("submit", async (e) => {
         e.preventDefault();
-        if (submitting) return;
-        submitting = true;
-        if (submit) {
-          submit.disabled = true;
-          submit.dataset.originalHtml = submit.innerHTML;
-          submit.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Logging in...';
-        }
-        error.style.display = "none";
-        const email = document.getElementById("email").value.trim();
-        const password = document.getElementById("password").value;
+        if (studentSubmitting) return;
+        studentSubmitting = true;
+        setButtonLoading(btnStudent, true, studentSpinner, studentLabel);
+        showError(studentError, "");
+        const admission = document.getElementById("studentAdmission").value.trim();
+        const pin = document.getElementById("studentPin").value;
         try {
-          await login(email, password);
+          await login(admission, pin);
         } catch (err) {
-          error.textContent = err.message || "Login failed";
-          error.style.display = "block";
+          showError(studentError, err.message || "Login failed. Please try again.");
         } finally {
-          submitting = false;
-          if (submit) {
-            submit.disabled = false;
-            if (submit.dataset.originalHtml) {
-              submit.innerHTML = submit.dataset.originalHtml;
-            } else {
-              submit.innerHTML = '<i class="fas fa-sign-in-alt"></i> Login';
-            }
-          }
+          studentSubmitting = false;
+          setButtonLoading(btnStudent, false, studentSpinner, studentLabel);
         }
+      });
+
+      // ---- Staff login ----
+      staffForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        if (staffSubmitting) return;
+        staffSubmitting = true;
+        setButtonLoading(btnStaff, true, staffSpinner, staffLabel);
+        showError(staffError, "");
+        const email = document.getElementById("staffEmail").value.trim();
+        const password = document.getElementById("staffPassword").value;
+        try {
+          const profile = await login(email, password);
+          routeStaffLogin(profile);
+        } catch (err) {
+          showError(staffError, err.message || "Login failed. Please try again.");
+        } finally {
+          staffSubmitting = false;
+          setButtonLoading(btnStaff, false, staffSpinner, staffLabel);
+        }
+      });
+
+      // ---- Create staff account ----
+      btnCreate.addEventListener("click", () => {
+        window.location.href = "./pages/staff/register.html";
       });
     }
 
-    if (document.readyState === "loading") {
-      document.addEventListener("DOMContentLoaded", initLoginForm, { once: true });
-    } else {
-      initLoginForm();
-    }
+    initLoginForm();
   </script>
 </body>
 
 </html>
+
+<!-- PHASE 1 COMPLETE NOTE: Two-tab login (Student/Staff), staff onboarding, profile completion, staff dashboard with status gating, admin staff management with approval workflow. -->
