@@ -211,6 +211,7 @@
         const pin = document.getElementById("studentPin").value;
         try {
           await login(admission, pin);
+          window.location.href = "./pages/student/dashboard.html";
         } catch (err) {
           showError(studentError, err.message || "Login failed. Please try again.");
         } finally {
